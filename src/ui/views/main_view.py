@@ -3,6 +3,7 @@ from PyQt5.QtCore import Qt, QTimer
 from src.ui.widgets.base_widgets import RoundedWidget
 from src.ui.widgets.camera_widget import CameraWidget
 from src.ui.widgets.detection_result_widget import DetectionResultWidget
+from src.hardware.servo_controller import ServoController
 import pyqtgraph as pg
 import numpy as np
 from datetime import datetime, timedelta
@@ -12,6 +13,7 @@ class MainView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.video_processor = VideoProcessor()  # Create one shared VideoProcessor
+        self.servo_controller = ServoController()  # Initialize servo controller
         self.initUI()
         
     def initUI(self):
@@ -115,6 +117,15 @@ class MainView(QWidget):
         # Update result
         classification = result_data.get('classification', '-')
         self.result_widget.update_value(classification)
+
+        # Control servo based on classification
+        if classification in ['High Value Recyclable', 'Low Value', 'Rejects']:
+            if classification == 'High Value Recyclable':
+                self.servo_controller.process_detection('high')
+            elif classification == 'Low Value':
+                self.servo_controller.process_detection('low')
+            elif classification == 'Rejects':
+                self.servo_controller.process_detection('reject')
     
     def toggle_detection(self):
         try:
@@ -244,6 +255,10 @@ class MainView(QWidget):
 
     def closeEvent(self, event):
         """Handle window close event."""
+        # Clean up servo controller
+        if hasattr(self, 'servo_controller'):
+            self.servo_controller.cleanup()
+        # Stop all camera widgets
         for widget in self.camera_widgets.values():
             widget.stop_camera()
         event.accept() 
