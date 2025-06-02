@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLabel
 from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QFont
 from src.ui.widgets.base_widgets import RoundedWidget
 from src.ui.widgets.camera_widget import CameraWidget
 from src.ui.widgets.detection_result_widget import DetectionResultWidget
@@ -23,15 +24,15 @@ class MainView(QWidget):
         # Left side - Camera feeds
         left_widget = RoundedWidget()
         left_layout = QVBoxLayout(left_widget)
-        left_layout.setContentsMargins(20, 20, 20, 20)  # Add margins to move content lower
+        left_layout.setContentsMargins(20, 40, 20, 20)  # Increased top margin to 40
         
         # Camera grid
         camera_grid = QGridLayout()
         camera_grid.setSpacing(15)  # Increase spacing between camera frames
         
         # Set fixed size for camera widgets
-        CAMERA_WIDTH = 320
-        CAMERA_HEIGHT = 240
+        CAMERA_WIDTH = 325
+        CAMERA_HEIGHT = 260
         
         # Create camera widgets with the shared video processor
         self.object_detection_camera = CameraWidget(view_type="object_detection", video_processor=self.video_processor)
@@ -59,6 +60,7 @@ class MainView(QWidget):
         # Start/Stop button
         self.start_btn = QPushButton("START")
         self.start_btn.setFixedSize(120, 40)
+        self.start_btn.setFont(QFont('Segoe UI', 14, QFont.Bold))
         self.start_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4f46e5;
@@ -75,6 +77,7 @@ class MainView(QWidget):
         self.start_btn.clicked.connect(self.toggle_detection)
         
         left_layout.addLayout(camera_grid)
+        left_layout.addSpacing(30)  # Add extra spacing before the button
         left_layout.addWidget(self.start_btn, alignment=Qt.AlignCenter)
         left_layout.addStretch()
         
@@ -82,7 +85,7 @@ class MainView(QWidget):
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
         right_layout.setSpacing(15)
-        right_layout.setContentsMargins(20, 20, 20, 20)  # Add margins to move content lower
+        right_layout.setContentsMargins(20, 40, 20, 20)  # Increased top margin to 40
         
         # Detection result panels
         self.plastic_type_widget = DetectionResultWidget("WASTE TYPE:", "-")

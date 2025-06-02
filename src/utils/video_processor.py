@@ -277,12 +277,10 @@ class VideoProcessor:
     
     def initialize(self):
         if not VideoProcessor._initialized:
-            # Only try the default camera (index 0) for fastest startup
             print("Trying to connect to camera index 0...")
             VideoProcessor._camera = cv2.VideoCapture(0)
             if not VideoProcessor._camera.isOpened():
                 raise Exception("Could not connect to camera at index 0. Please check your camera connection.")
-            # Set camera properties immediately
             try:
                 VideoProcessor._camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                 VideoProcessor._camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -293,16 +291,12 @@ class VideoProcessor:
                 print(f"Camera resolution set to: {actual_width}x{actual_height}")
             except Exception as e:
                 print(f"Warning: Could not set all camera properties: {str(e)}")
-            
-            # Initialize model
             try:
                 self.model = YOLO("best.pt")
                 self.model.to('cuda' if torch.cuda.is_available() else 'cpu')
                 print("Model loaded successfully")
             except Exception as e:
                 raise Exception(f"Failed to load YOLO model: {str(e)}")
-            
-            # Capture initial background
             try:
                 ret, frame = VideoProcessor._camera.read()
                 if ret:
@@ -313,9 +307,7 @@ class VideoProcessor:
                     print("Warning: Could not capture initial background")
             except Exception as e:
                 print(f"Warning: Error capturing initial background: {str(e)}")
-            
             VideoProcessor._initialized = True
-        
         self.cap = VideoProcessor._camera
     
     def start(self):
@@ -328,6 +320,12 @@ class VideoProcessor:
     
     def stop(self):
         self.running = False
+        self.latest_result = None  # Clear the latest result
+        # Do NOT release the camera or set _initialized to False here
+        # Only stop threads and clear results
+    
+    def release_camera(self):
+        # Call this only on app exit
         if VideoProcessor._camera is not None:
             VideoProcessor._camera.release()
             VideoProcessor._camera = None
