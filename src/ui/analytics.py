@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, 
-                             QTableWidgetItem, QHeaderView, QFrame, QLabel, QSizePolicy)
+                             QTableWidgetItem, QHeaderView, QFrame, QLabel, QSizePolicy, QPushButton, QComboBox)
 from PyQt5.QtCore import Qt, QTimer, QRect
 from PyQt5.QtGui import QPainter, QColor, QPen, QFont, QPalette
 import pyqtgraph as pg
@@ -9,10 +9,11 @@ from datetime import datetime, timedelta
 import sqlite3
 from pathlib import Path
 import math
+from src.ui.widgets.chart_widgets import PieChartWidget, BarChartWidget
 
 # Color scheme
 COLORS = {
-    'background': '#1E1E1E',
+    'background': '#111827',
     'panel': '#2D2D2D',
     'text': '#FFFFFF',
     'accent': '#4CAF50',
@@ -43,40 +44,45 @@ BAR_TYPE_COLORS = {
 def get_bar_color(waste_type):
     return BAR_TYPE_COLORS.get(waste_type, '#bdbdbd')
 
-class Panel(QFrame):
+class Panel(QWidget):
     def __init__(self, title, parent=None):
         super().__init__(parent)
-        self.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {COLORS['panel']};
-                border: 1px solid {COLORS['border']};
-                border-radius: 8px;
-            }}
-        """)
+        self.initUI(title)
         
-        # Layout
+    def initUI(self, title):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(8)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
         
-        # Title
+        # Title label with improved styling
         title_label = QLabel(title)
-        title_label.setStyleSheet(f"""
-            QLabel {{
-                color: {COLORS['text']};
-                font-size: 14px;
-                font-weight: bold;
-                padding: 4px;
-            }}
+        title_label.setFont(QFont('Segoe UI', 12, QFont.Bold))
+        title_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                background-color: transparent;
+                padding: 5px;
+            }
         """)
-        layout.addWidget(title_label)
+        title_label.setAlignment(Qt.AlignCenter)
         
-        # Content container
-        self.content = QWidget()
-        self.content_layout = QVBoxLayout(self.content)
+        # Content widget
+        self.content_widget = QWidget()
+        self.content_layout = QVBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.content)
+        
+        # Add widgets to main layout
+        layout.addWidget(title_label)
+        layout.addWidget(self.content_widget)
+        
+        # Set panel style
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #111827;
+                border-radius: 10px;
+                border: 1px solid #16324b;
+            }
+        """)
 
 class PieChartWidget(QWidget):
     def __init__(self, parent=None):
@@ -121,7 +127,7 @@ class PieChartWidget(QWidget):
         chart_rect.setHeight(size)
         chart_rect.moveCenter(rect.center())
         painter.setPen(QPen(QColor(COLORS['text'])))
-        painter.setFont(QFont('Open Sans', 12, QFont.Bold))
+        painter.setFont(QFont('Segoe UI', 12, QFont.Bold))
         painter.drawText(rect, Qt.AlignTop | Qt.AlignHCenter, "Classification Distribution")
         start_angle = 0
         for i, (label, value) in enumerate(self.data):
@@ -135,15 +141,15 @@ class PieChartWidget(QWidget):
             # Only show percentage if angle is large enough
             if angle > 30:
                 label_radius = radius * 0.65
-                font = QFont('Open Sans', 10)
+                font = QFont('Segoe UI', 10)
                 text_box = (-30, -10, 60, 20)
             elif angle > 15:
                 label_radius = radius * 0.75
-                font = QFont('Open Sans', 8)
+                font = QFont('Segoe UI', 8)
                 text_box = (-20, -8, 40, 16)
             else:
                 label_radius = radius * 0.85
-                font = QFont('Open Sans', 7)
+                font = QFont('Segoe UI', 7)
                 text_box = (-15, -6, 30, 12)
             if angle > 15:
                 label_x = chart_rect.center().x() + label_radius * math.cos(mid_angle)
@@ -164,36 +170,13 @@ class PieChartWidget(QWidget):
             painter.setPen(Qt.NoPen)
             painter.drawRect(legend_x, legend_y, 18, 18)
             painter.setPen(QPen(QColor(COLORS['text'])))
-            painter.setFont(QFont('Open Sans', 9))
+            painter.setFont(QFont('Segoe UIs', 9))
             painter.drawText(legend_x + 24, legend_y + 15, label)
             legend_y += 30
 
 class AnalyticsWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet(f"""
-            QWidget {{
-                background-color: {COLORS['background']};
-                color: {COLORS['text']};
-            }}
-            QTableWidget {{
-                background-color: {COLORS['panel']};
-                color: {COLORS['text']};
-                gridline-color: {COLORS['border']};
-                border: none;
-                border-radius: 4px;
-            }}
-            QTableWidget::item {{
-                padding: 5px;
-            }}
-            QHeaderView::section {{
-                background-color: {COLORS['panel']};
-                color: {COLORS['text']};
-                padding: 5px;
-                border: none;
-                border-bottom: 1px solid {COLORS['border']};
-            }}
-        """)
         self.init_ui()
         self.setup_timer()
         
@@ -209,18 +192,148 @@ class AnalyticsWidget(QWidget):
         
         # Table Panel
         table_panel = Panel("Recent Detections")
+        
+        # Add filter controls
+        filter_layout = QHBoxLayout()
+        filter_layout.setSpacing(10)
+        
+        # Time filter dropdown
+        time_filter_label = QLabel("Time Range")
+        time_filter_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-size: 12px;
+                background: transparent;
+                border: none;
+            }
+        """)
+        self.time_filter = QComboBox()
+        self.time_filter.addItems(["Past Hour", "Past Day", "Past Week", "Past Month"])
+        
+        # Style the dropdowns
+        dropdown_style = """
+            QComboBox {
+                background-color: #111827;
+                color: white;
+                border: 1px solid #16324b;
+                border-radius: 5px;
+                padding: 5px 10px;
+                font-size: 12px;
+                min-width: 120px;
+            }
+            QComboBox:hover {
+                border: 1px solid #3ac194;
+            }
+            QComboBox::drop-down {
+                border: none;
+            }
+            QComboBox::down-arrow {
+                image: url(resources/icons/dropdown.png);
+                width: 12px;
+                height: 12px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #111827;
+                color: white;
+                border: 1px solid #16324b;
+                selection-background-color: #1e3a8a;
+            }
+        """
+        
+        self.time_filter.setStyleSheet(dropdown_style)
+        
+        # Add dropdown filters
+        type_filter_label = QLabel("Type")
+        type_filter_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-size: 12px;
+                background: transparent;
+                border: none;
+            }
+        """)
+        self.type_filter = QComboBox()
+        self.type_filter.addItem("All Types")
+        self.type_filter.addItems([
+            "PET Bottle", "HDPE Plastic", "PP", "LDPE", 
+            "Tin-Steel Can", "Mixed Trash", "UHT Box", "Other"
+        ])
+        
+        classification_filter_label = QLabel("Classification")
+        classification_filter_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                font-size: 12px;
+                background: transparent;
+                border: none;
+            }
+        """)
+        self.classification_filter = QComboBox()
+        self.classification_filter.addItem("All Classifications")
+        self.classification_filter.addItems([
+            "High Value Recyclable", "Low Value", "Rejects", "Mixed"
+        ])
+        
+        # Apply dropdown style to all comboboxes
+        self.type_filter.setStyleSheet(dropdown_style)
+        self.classification_filter.setStyleSheet(dropdown_style)
+        
+        # Connect dropdown signals
+        self.time_filter.currentTextChanged.connect(self.update_table)
+        self.type_filter.currentTextChanged.connect(self.update_table)
+        self.classification_filter.currentTextChanged.connect(self.update_table)
+        
+        # Add dropdowns to filter layout
+        filter_layout.addWidget(time_filter_label)
+        filter_layout.addWidget(self.time_filter)
+        filter_layout.addWidget(type_filter_label)
+        filter_layout.addWidget(self.type_filter)
+        filter_layout.addWidget(classification_filter_label)
+        filter_layout.addWidget(self.classification_filter)
+        filter_layout.addStretch()
+        
+        # Add filter layout to panel
+        table_panel.content_layout.addLayout(filter_layout)
+        
+        # Create table
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels([
-            'ID', 'Timestamp', 'Transparency', 
-            'Contamination', 'Classification', 'Type'
+            'ID', 'Type', 'Opacity', 'Contamination', 'Classification', 'Timestamp'
         ])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        
+        # Set column widths
+        self.table.setColumnWidth(0, 50)  # ID column smaller
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)  # ID column fixed width
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)  # Type
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)  # Opacity
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)  # Contamination
+        self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)  # Classification
+        self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch)  # Timestamp
+        
         self.table.setMaximumHeight(300)
+        self.table.setStyleSheet("""
+            QTableWidget {
+                background-color: #111827;
+                color: white;
+                gridline-color: #16324b;
+                border: none;
+            }
+            QHeaderView::section {
+                background-color: #111827;
+                color: white;
+                padding: 5px;
+                border: 1px solid #16324b;
+            }
+            QTableWidget::item {
+                padding: 5px;
+                border-bottom: 1px solid #16324b;
+            }
+        """)
         table_panel.content_layout.addWidget(self.table)
         
         # Pie Chart Panel
-        pie_panel = Panel("Classification Distribution")
+        pie_panel = Panel("Distribution")  # Simplified title
         self.pie_chart = PieChartWidget()
         self.pie_chart.setMinimumSize(300, 300)
         self.pie_chart.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -231,19 +344,12 @@ class AnalyticsWidget(QWidget):
         top_layout.addWidget(pie_panel, 1)
         
         # Bar Chart Panel
-        bar_panel = Panel("Waste Types Distribution (Last Hour)")
-        self.bar_chart = pg.PlotWidget()
-        self.bar_chart.setBackground(COLORS['panel'])
-        self.bar_chart.setMinimumHeight(200)
-        self.bar_chart.setMaximumHeight(250)
-        self.bar_chart.getAxis('bottom').setTextPen(COLORS['text'])
-        self.bar_chart.getAxis('left').setTextPen(COLORS['text'])
-        self.bar_chart.getAxis('bottom').setPen(COLORS['border'])
-        self.bar_chart.getAxis('left').setPen(COLORS['border'])
-        self.bar_chart.showGrid(x=True, y=True, alpha=0.3)
-        self.bar_chart.getPlotItem().getViewBox().setMouseMode(pg.ViewBox.RectMode)
-        self.bar_chart.getPlotItem().getViewBox().setAspectLocked(False)
-        self.bar_chart.getPlotItem().getViewBox().setRange(xRange=[-0.5, 4.5], yRange=[0, 10], padding=0.1)
+        bar_panel = Panel("Waste Types")
+        
+        # Add bar chart with reduced size
+        self.bar_chart = BarChartWidget()
+        self.bar_chart.setMinimumHeight(180)  # Reduced height
+        self.bar_chart.setMaximumHeight(200)  # Reduced height
         bar_panel.content_layout.addWidget(self.bar_chart)
         
         # Add layouts to main layout
@@ -259,6 +365,11 @@ class AnalyticsWidget(QWidget):
         self.timer.timeout.connect(self.update_data)
         self.timer.start(2000)
         
+    def update_time_filter(self, time_filter):
+        # Update all charts with the new time filter
+        self.bar_chart.set_time_filter(time_filter)
+        self.update_charts()
+        
     def update_data(self):
         self.update_table()
         self.update_charts()
@@ -269,33 +380,82 @@ class AnalyticsWidget(QWidget):
             db_path = Path('data/measurements.db')
             conn = sqlite3.connect(str(db_path))
             
-            # Get last 10 records
+            # Determine time filter
+            time_conditions = {
+                'Past Hour': "datetime('now', '-1 hour')",
+                'Past Day': "datetime('now', '-1 day')",
+                'Past Week': "datetime('now', '-7 days')",
+                'Past Month': "datetime('now', '-30 days')"
+            }
+            
+            # Get current time filter
+            time_filter = self.time_filter.currentText()
+            
+            # Build query with filters
             query = """
-            SELECT id, timestamp, waste_type, opacity, contamination, classification
+            SELECT id, waste_type, opacity, contamination, classification, timestamp
             FROM detections
+            WHERE timestamp >= {time_condition}
+            """.format(time_condition=time_conditions[time_filter])
+            
+            # Add type filter if selected
+            selected_type = self.type_filter.currentText()
+            if selected_type != "All Types":
+                query += f" AND waste_type = '{selected_type}'"
+            
+            # Add classification filter if selected
+            selected_classification = self.classification_filter.currentText()
+            if selected_classification != "All Classifications":
+                query += f" AND classification = '{selected_classification}'"
+            
+            # Add ordering and limit
+            query += """
             ORDER BY timestamp DESC
             LIMIT 10
             """
+            
             df = pd.read_sql_query(query, conn)
             conn.close()
             
             # Update table
             self.table.setRowCount(len(df))
             for i, row in df.iterrows():
-                for j, value in enumerate(row):
-                    item = QTableWidgetItem(str(value))
-                    item.setTextAlignment(Qt.AlignCenter)
-                    
-                    # Color coding for classification
-                    if j == 5:  # Classification column
-                        if value == 'High Value Recyclable':
-                            item.setForeground(QColor(COLORS['accent']))
-                        elif value == 'Low Value':
-                            item.setForeground(QColor(COLORS['warning']))
-                        elif value == 'Rejects':
-                            item.setForeground(QColor(COLORS['error']))
-                    
-                    self.table.setItem(i, j, item)
+                # ID
+                item = QTableWidgetItem(str(row['id']))
+                item.setTextAlignment(Qt.AlignCenter)
+                self.table.setItem(i, 0, item)
+                
+                # Type
+                item = QTableWidgetItem(str(row['waste_type']))
+                item.setTextAlignment(Qt.AlignCenter)
+                self.table.setItem(i, 1, item)
+                
+                # Opacity
+                item = QTableWidgetItem(str(row['opacity']))
+                item.setTextAlignment(Qt.AlignCenter)
+                self.table.setItem(i, 2, item)
+                
+                # Contamination
+                contamination = float(row['contamination'])
+                item = QTableWidgetItem(f"{contamination:.2f}%")
+                item.setTextAlignment(Qt.AlignCenter)
+                self.table.setItem(i, 3, item)
+                
+                # Classification
+                item = QTableWidgetItem(str(row['classification']))
+                item.setTextAlignment(Qt.AlignCenter)
+                if row['classification'] == 'High Value Recyclable':
+                    item.setForeground(QColor(COLORS['accent']))
+                elif row['classification'] == 'Low Value':
+                    item.setForeground(QColor(COLORS['warning']))
+                elif row['classification'] == 'Rejects':
+                    item.setForeground(QColor(COLORS['error']))
+                self.table.setItem(i, 4, item)
+                
+                # Timestamp
+                item = QTableWidgetItem(str(row['timestamp']))
+                item.setTextAlignment(Qt.AlignCenter)
+                self.table.setItem(i, 5, item)
                     
         except Exception as e:
             print(f"Error updating table: {str(e)}")
@@ -306,19 +466,44 @@ class AnalyticsWidget(QWidget):
             db_path = Path('data/measurements.db')
             conn = sqlite3.connect(str(db_path))
             
+            # Get current time filter
+            time_filter = self.time_filter.currentText()
+            time_conditions = {
+                'Past Hour': "datetime('now', '-1 hour')",
+                'Past Day': "datetime('now', '-1 day')",
+                'Past Week': "datetime('now', '-7 days')",
+                'Past Month': "datetime('now', '-30 days')"
+            }
+            
+            # Get current type and classification filters
+            selected_type = self.type_filter.currentText()
+            selected_classification = self.classification_filter.currentText()
+            
+            # Build base query with time filter
+            base_where = f"timestamp >= {time_conditions[time_filter]}"
+            
+            # Add type filter if selected
+            if selected_type != "All Types":
+                base_where += f" AND waste_type = '{selected_type}'"
+            
+            # Add classification filter if selected
+            if selected_classification != "All Classifications":
+                base_where += f" AND classification = '{selected_classification}'"
+            
             # Get data for pie chart (classification distribution)
-            pie_query = """
+            pie_query = f"""
             SELECT classification, COUNT(*) as count
             FROM detections
+            WHERE {base_where}
             GROUP BY classification
             """
             pie_df = pd.read_sql_query(pie_query, conn)
             
-            # Get data for bar chart (waste types over time)
-            bar_query = """
+            # Get data for bar chart based on time filter
+            bar_query = f"""
             SELECT waste_type, COUNT(*) as count
             FROM detections
-            WHERE timestamp >= datetime('now', '-1 hour')
+            WHERE {base_where}
             GROUP BY waste_type
             """
             bar_df = pd.read_sql_query(bar_query, conn)
@@ -333,23 +518,8 @@ class AnalyticsWidget(QWidget):
                 )
                 
             # Update bar chart
-            self.bar_chart.clear()
             if not bar_df.empty:
-                x = np.arange(len(bar_df))
-                brushes = [pg.mkBrush(get_bar_color(wt)) for wt in bar_df['waste_type']]
-                bargraph = pg.BarGraphItem(
-                    x=x,
-                    height=bar_df['count'].values,
-                    width=0.6,
-                    brushes=brushes
-                )
-                self.bar_chart.addItem(bargraph)
-                ax = self.bar_chart.getAxis('bottom')
-                ax.setTicks([[(i, label) for i, label in enumerate(bar_df['waste_type'])]])
-                max_count = bar_df['count'].max()
-                self.bar_chart.setYRange(0, max_count * 1.2)
-                ax.setStyle(showValues=True)
-                ax.setHeight(50)
+                self.bar_chart.update_chart()  # The BarChartWidget handles its own data loading
                 
         except Exception as e:
             print(f"Error updating charts: {str(e)}")
