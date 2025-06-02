@@ -6,16 +6,17 @@ A modern PyQt5-based dashboard for object detection and analysis.
 
 - Modern and responsive UI with a dark theme
 - Multiple camera feed support
-- Real-time object detection
+- Real-time object detection (YOLOv11s)
 - Statistical analysis and visualization
 - Interactive charts and graphs
+- Hardware servo support (optional)
 
 ## Installation
 
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/yourusername/ecograde.git
+git clone https://github.com/VianVargas/EcoGrade.git
 cd ecograde
 ```
 
@@ -23,7 +24,10 @@ cd ecograde
 
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# On Windows:
+venv\Scripts\activate
+# On macOS/Linux:
+source venv/bin/activate
 ```
 
 3. Install dependencies:
@@ -32,33 +36,77 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+4. Ensure all required assets are present:
+
+- **Fonts:**
+  - `src/ui/assets/fonts/Fredoka-Medium.ttf`
+  - `src/ui/assets/fonts/Fredoka-SemiBold.ttf`
+- **SVGs and Images:**
+  - `src/ui/assets/LOGO.png`
+  - `src/ui/assets/home.svg`
+  - `src/ui/assets/bar-chart.svg`
+  - `src/ui/assets/corner-up-left.svg`
+  - `src/ui/assets/power.svg`
+  - `src/ui/assets/info.svg`
+
+If any of these files are missing, download or create them as needed. The Fredoka font can be downloaded from [Google Fonts](https://fonts.google.com/specimen/Fredoka).
+
 ## Usage
 
 Run the application:
 
 ```bash
-python src/main.py
+python main.py
 ```
 
 ## Project Structure
 
 ```
-ecograde/
-├── src/
-│   ├── ui/
-│   │   ├── widgets/
-│   │   │   ├── base_widgets.py
-│   │   │   ├── chart_widgets.py
-│   │   │   ├── grid_widget.py
-│   │   │   └── sidebar_button.py
-│   │   ├── views/
-│   │   │   ├── front_page.py
-│   │   │   ├── main_view.py
-│   │   │   └── stats_view.py
-│   │   └── main_window.py
-│   └── main.py
+EcoGrade/
+├── main.py
 ├── requirements.txt
-└── README.md
+├── README.md
+├── src/
+│   ├── main.py
+│   ├── __init__.py
+│   ├── hardware/
+│   ├── utils/
+│   └── ui/
+│       ├── main_window.py
+│       ├── analytics.py
+│       ├── start_page.py
+│       ├── assets/
+│       │   ├── fonts/
+│       │   │   ├── Fredoka-Medium.ttf
+│       │   │   └── Fredoka-SemiBold.ttf
+│       │   ├── LOGO.png
+│       │   ├── home.svg
+│       │   ├── bar-chart.svg
+│       │   ├── corner-up-left.svg
+│       │   ├── power.svg
+│       │   └── info.svg
+│       ├── widgets/
+│       └── views/
+├── data/
+│   └── measurements.db
+└── scripts/
+    └── update_detection_ids.py
+```
+
+## Python Dependencies
+
+All required Python packages are listed in `requirements.txt`. This includes:
+- PyQt5 (UI framework)
+- opencv-python (camera and image processing)
+- numpy, pandas (data processing)
+- matplotlib, pyqtgraph (visualization)
+- ultralytics, torch (YOLOv11s model)
+- openpyxl (Excel export)
+- adafruit-pca9685, adafruit-circuitpython-motor, adafruit-blinka, board, busio (servo hardware support)
+
+Install with:
+```bash
+pip install -r requirements.txt
 ```
 
 ## Contributing
@@ -72,11 +120,3 @@ ecograde/
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Font Dependency
-
-This project uses the "Fredoka" font for the main title. Please download the font and place the file as:
-
-    assets/fonts/Fredoka-Medium.ttf
-
-You can download the font from Google Fonts: https://fonts.google.com/specimen/Fredoka

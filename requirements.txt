@@ -1,3 +1,4 @@
+# Core dependencies
 PyQt5>=5.15.0
 opencv-python>=4.5.0
 numpy>=1.19.0
@@ -7,11 +8,12 @@ torch>=2.0.0
 pyqtgraph>=0.12.0
 pandas>=1.3.0
 openpyxl>=3.0.0
-# For hardware servo support (optional, only if using real hardware)
+
+# For hardware servo support (optional)
 adafruit-pca9685
 adafruit-circuitpython-motor
 adafruit-blinka
 board
 busio
-# For custom font 'Intro Rust', install manually or provide TTF file if not available via pip
-# pip install intro-rust (not available on PyPI) 
+
+# Note: Fonts (Fredoka) and SVGs are included in src/ui/assets/fonts and src/ui/assets, not installed via pip.

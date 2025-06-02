@@ -6,7 +6,6 @@ from ultralytics import YOLO
 import threading
 from queue import Queue
 import pandas as pd
-import uuid
 import os
 from datetime import datetime
 import sqlite3
