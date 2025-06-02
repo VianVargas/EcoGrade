@@ -34,7 +34,7 @@ class SidebarButton(QPushButton):
         """)
         
         # If the icon_path is a PNG or SVG file, use it as an icon
-        if (icon_path.lower().endswith('.png') or icon_path.lower().endswith('.svg')) and os.path.exists(icon_path):
+        if (icon_path.lower().endswith('.svg')) and os.path.exists(icon_path):
             icon = QIcon(icon_path)
             self.setIcon(icon)
             self.setIconSize(QSize(25, 25))  # Adjust icon size to fit within the button

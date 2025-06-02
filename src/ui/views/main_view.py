@@ -18,19 +18,7 @@ class MainView(QWidget):
         
     def initUI(self):
         layout = QHBoxLayout()
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-        layout.setSpacing(30)  # Make left and right panels closer
-=======
         layout.setSpacing(10)  # Make left and right panels closer
->>>>>>> Stashed changes
-=======
-        layout.setSpacing(10)  # Make left and right panels closer
->>>>>>> Stashed changes
-=======
-        layout.setSpacing(10)  # Make left and right panels closer
->>>>>>> Stashed changes
         
         # Left side - Camera feeds
         left_widget = RoundedWidget()
@@ -42,23 +30,8 @@ class MainView(QWidget):
         camera_grid.setSpacing(15)  # Increase spacing between camera frames
         
         # Set fixed size for camera widgets
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-        CAMERA_WIDTH = 300
-        CAMERA_HEIGHT = 280
-=======
         CAMERA_WIDTH = 320
         CAMERA_HEIGHT = 240
->>>>>>> Stashed changes
-=======
-        CAMERA_WIDTH = 320
-        CAMERA_HEIGHT = 240
->>>>>>> Stashed changes
-=======
-        CAMERA_WIDTH = 320
-        CAMERA_HEIGHT = 240
->>>>>>> Stashed changes
         
         # Create camera widgets with the shared video processor
         self.object_detection_camera = CameraWidget(view_type="object_detection", video_processor=self.video_processor)
