@@ -8,97 +8,210 @@ from PyQt5.QtGui import QFont
 import matplotlib.pyplot as plt
 import sqlite3
 from pathlib import Path
+import time
 
 class PieChartWidget(FigureCanvas):
     def __init__(self, parent=None):
-        self.fig = Figure(figsize=(6, 4), facecolor='#111827')
+        self.fig = Figure(figsize=(5, 2.5), facecolor='#111827')
         super().__init__(self.fig)
         self.setParent(parent)
         self.ax = self.fig.add_subplot(111, facecolor='#111827')
+        self.classification_colors = {
+            'High Value Recyclable': '#4CAF50',   # Green
+            'Low Value': '#2196F3',    # Blue
+            'Rejects': '#FFC107',      # Yellow
+            'Mixed': '#F44336'         # Red
+        }
         self.update_chart()
-        # Add timer for real-time updates
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_chart)
-        self.timer.start(2000)  # update every 2 seconds
 
-    def update_chart(self, excel_path='detections.xlsx'):
+    def update_chart_with_data(self, items, values):
         self.ax.clear()
-        if os.path.exists(excel_path):
-            df = pd.read_excel(excel_path)
-            if 'result' in df.columns:
-                counts = df['result'].value_counts()
-                labels = counts.index.tolist()
-                sizes = counts.values.tolist()
-                colors = ['#10b981', '#f59e42', '#ef4444', '#6366f1', '#6ee7b7'][:len(labels)]
-                
-                # Calculate percentages for better label display
-                total = sum(sizes)
-                percentages = [f'{size/total*100:.1f}%' for size in sizes]
-                
-                # Create pie chart with improved labels
-                wedges, texts, autotexts = self.ax.pie(
-                    sizes, 
-                    labels=labels,
-                    colors=colors,
-                    autopct='%1.1f%%',
-                    startangle=90,
-                    textprops={'color': 'white', 'fontsize': 10},
-                    pctdistance=0.85,  # Move percentage labels further out
-                    labeldistance=1.1   # Move labels further out
-                )
-                
-                # Make the percentage labels more visible
-                for autotext in autotexts:
-                    autotext.set_color('white')
-                    autotext.set_fontsize(10)
-                    autotext.set_fontweight('bold')
-                
-                # Add a white circle in the middle to create a donut chart
-                centre_circle = plt.Circle((0,0), 0.70, fc='#1e3a8a')
-                self.ax.add_artist(centre_circle)
-                
-                # Equal aspect ratio ensures that pie is drawn as a circle
-                self.ax.axis('equal')
-            else:
-                self.ax.text(0.5, 0.5, 'No Data', color='white', ha='center', va='center')
-        else:
+        if not items or not values:
             self.ax.text(0.5, 0.5, 'No Data', color='white', ha='center', va='center')
+            self.draw()
+            return
+
+        # Get colors for each classification
+        colors = [self.classification_colors.get(c, '#bdbdbd') for c in items]
+        
+        # Create pie chart
+        wedges, texts, autotexts = self.ax.pie(
+            values,
+            labels=None,
+            colors=colors,
+            autopct='%1.1f%%',
+            textprops={'color': 'white', 'fontsize': 8},
+            wedgeprops={'linewidth': 1, 'edgecolor': '#16324b'}
+        )
+
+        # Style percentage labels
+        for autotext in autotexts:
+            autotext.set_color('white')
+            autotext.set_fontsize(8)
+
+        # Add border
+        for spine in self.ax.spines.values():
+            spine.set_visible(True)
+            spine.set_color('#16324b')
+            spine.set_linewidth(1)
+
+        # Create legend with all classifications
+        legend_handles = []
+        legend_labels = []
+        for classification in self.classification_colors.keys():
+            if classification in items:
+                legend_handles.append(plt.Rectangle((0, 0), 1, 1, 
+                    facecolor=self.classification_colors[classification]))
+                legend_labels.append(classification.replace(' Recyclable', ''))
+
+        if legend_handles:
+            legend = self.ax.legend(
+                handles=legend_handles,
+                labels=legend_labels,
+                loc='upper left',
+                bbox_to_anchor=(-0.25, 0.9),
+                frameon=False,
+                fontsize=8
+            )
+            for text in legend.get_texts():
+                text.set_color('white')
+
         self.fig.tight_layout()
         self.draw()
 
+    def update_chart(self):
+        try:
+            db_path = Path('data/measurements.db')
+            conn = sqlite3.connect(str(db_path))
+            
+            query = """
+            SELECT classification, COUNT(*) as count
+            FROM detections
+            WHERE timestamp >= datetime('now', '-1 hour')
+            GROUP BY classification
+            """
+            
+            df = pd.read_sql_query(query, conn)
+            conn.close()
+            
+            if not df.empty:
+                self.update_chart_with_data(
+                    df['classification'].tolist(),
+                    df['count'].tolist()
+                )
+            else:
+                self.ax.clear()
+                self.ax.text(0.5, 0.5, 'No Data', color='white', ha='center', va='center')
+                self.draw()
+                
+        except Exception as e:
+            print(f"Error updating pie chart: {str(e)}")
+            self.ax.clear()
+            self.ax.text(0.5, 0.5, 'Error Loading Data', color='white', ha='center', va='center')
+            self.draw()
+
 class BarChartWidget(FigureCanvas):
     def __init__(self, parent=None):
-        self.fig = Figure(figsize=(5, 2.5), facecolor='#111827')  # Made figure smaller
+        self.fig = Figure(figsize=(5, 2.5), facecolor='#111827')
         super().__init__(self.fig)
         self.setParent(parent)
         self.ax = self.fig.add_subplot(111, facecolor='#111827')
-        self.time_filter = 'Past Hour'  # Default to hour
+        self.time_filter = 'hour'  # Default to hour
+        self.bar_width = 0.5  # Default bar width
         self.update_chart()
-        # Add timer for real-time updates
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_chart)
-        self.timer.start(2000)  # update every 2 seconds
 
     def set_time_filter(self, time_filter):
         self.time_filter = time_filter
         self.update_chart()
+        
+    def set_bar_width(self, width):
+        self.bar_width = width
+        
+    def update_chart_with_data(self, items, values):
+        self.ax.clear()
+        
+        if not items or not values:
+            self.ax.text(0.5, 0.5, 'No Data', color='white', ha='center', va='center')
+            self.draw()
+            return
+            
+        # Define colors for each waste type
+        waste_type_colors = {
+            'PET Bottle': '#10b981',      # Green
+            'HDPE Plastic': '#34d399',    # Light Green
+            'PP': '#f59e42',              # Orange
+            'LDPE': '#ab47bc',            # Purple
+            'Tin-Steel Can': '#bdbdbd',   # Gray
+            'UHT Box': '#ff7043',         # Deep Orange
+        }
+        
+        # Get colors for each waste type, default to gray if not found
+        colors = [waste_type_colors.get(wt, '#bdbdbd') for wt in items]
+        
+        # Calculate bar positions based on number of items
+        num_items = len(items)
+        if num_items == 1:
+            x_positions = [0.5]  # Center the single bar
+        else:
+            x_positions = range(len(items))
+        
+        # Create bars with proper positioning and width
+        bars = self.ax.bar(x_positions, values, color=colors, width=self.bar_width)
+        
+        # Set x-axis limits to prevent single bar from stretching
+        if num_items == 1:
+            self.ax.set_xlim(-0.5, 1.5)  # Center the single bar with padding
+        else:
+            self.ax.set_xlim(-0.5, len(items) - 0.5)  # Add padding for multiple bars
+        
+        # Customize the appearance
+        self.ax.set_ylim(0, max(values + [1]))
+        self.ax.set_facecolor('#111827')
+        self.fig.set_facecolor('#111827')
+        
+        # Set x-axis ticks and labels
+        if num_items == 1:
+            self.ax.set_xticks([0.5])
+            self.ax.set_xticklabels(items, rotation=45, ha='right', color='white', fontsize=9)
+        else:
+            self.ax.set_xticks(range(len(items)))
+            self.ax.set_xticklabels(items, rotation=45, ha='right', color='white', fontsize=9)
+        
+        # Style the ticks and labels
+        self.ax.tick_params(colors='white', labelsize=9)
+        for spine in self.ax.spines.values():
+            spine.set_color('white')
+            spine.set_linewidth(1)
+        
+        # Add value labels on top of bars
+        for bar in bars:
+            height = bar.get_height()
+            self.ax.text(bar.get_x() + bar.get_width()/2., height,
+                        f'{int(height)}',
+                        ha='center', va='bottom', color='white', fontsize=9)
+        
+        # Add border
+        for spine in self.ax.spines.values():
+            spine.set_visible(True)
+            spine.set_color('white')
+            spine.set_linewidth(1)
+        
+        # Adjust layout to prevent label cutoff
+        self.fig.tight_layout()
+        self.draw()
 
     def update_chart(self):
-        self.ax.clear()
         try:
-            # Connect to SQLite database
             db_path = Path('data/measurements.db')
             conn = sqlite3.connect(str(db_path))
             
-            # Determine time filter
             time_conditions = {
-                'Past Hour': "datetime('now', '-1 hour')",
-                'Past Day': "datetime('now', '-1 day')",
-                'Past Week': "datetime('now', '-7 days')",
-                'Past Month': "datetime('now', '-30 days')"
+                'hour': "datetime('now', '-1 hour')",
+                'day': "datetime('now', '-1 day')",
+                'week': "datetime('now', '-7 days')",
+                'month': "datetime('now', '-30 days')"
             }
             
-            # Get data for bar chart based on time filter
             query = f"""
             SELECT waste_type, COUNT(*) as count
             FROM detections
@@ -110,81 +223,20 @@ class BarChartWidget(FigureCanvas):
             conn.close()
             
             if not df.empty:
-                items = df['waste_type'].tolist()
-                values = df['count'].tolist()
-                
-                # Define colors for each waste type
-                waste_type_colors = {
-                    'PET Bottle': '#10b981',      # Green
-                    'HDPE Plastic': '#34d399',    # Light Green
-                    'PP': '#f59e42',              # Orange
-                    'LDPE': '#ab47bc',            # Purple
-                    'Tin-Steel Can': '#bdbdbd',   # Gray
-                    'Mixed Trash': '#8d6e63',     # Brown
-                    'UHT Box': '#ff7043',         # Deep Orange
-                    'Other': '#789262'            # Olive
-                }
-                
-                # Get colors for each waste type, default to gray if not found
-                colors = [waste_type_colors.get(wt, '#bdbdbd') for wt in items]
-                
-                # Calculate bar width based on number of items
-                num_items = len(items)
-                if num_items == 1:
-                    bar_width = 0.2  # Very narrow bar for single item
-                    x_positions = [0.5]  # Center the single bar
-                elif num_items <= 3:
-                    bar_width = 0.3  # Narrower bars for few items
-                    x_positions = range(len(items))
-                else:
-                    bar_width = 0.5  # Default width for many items
-                    x_positions = range(len(items))
-                
-                # Create bars with proper positioning
-                bars = self.ax.bar(x_positions, values, color=colors, width=bar_width)
-                
-                # Customize the appearance
-                self.ax.set_ylim(0, max(values + [1]))
-                self.ax.set_facecolor('#111827')
-                self.fig.set_facecolor('#111827')
-                
-                # Set x-axis ticks and labels
-                if num_items == 1:
-                    self.ax.set_xticks([0.5])
-                    self.ax.set_xticklabels(items, rotation=45, ha='right', color='white', fontsize=9)
-                else:
-                    self.ax.set_xticks(range(len(items)))
-                    self.ax.set_xticklabels(items, rotation=45, ha='right', color='white', fontsize=9)
-                
-                # Style the ticks and labels
-                self.ax.tick_params(colors='white', labelsize=9)  # Smaller font
-                for spine in self.ax.spines.values():
-                    spine.set_color('white')
-                    spine.set_linewidth(1)
-                
-                # Add value labels on top of bars
-                for bar in bars:
-                    height = bar.get_height()
-                    self.ax.text(bar.get_x() + bar.get_width()/2., height,
-                                f'{int(height)}',
-                                ha='center', va='bottom', color='white', fontsize=9)  # Smaller font
-                
-                # Add border
-                for spine in self.ax.spines.values():
-                    spine.set_visible(True)
-                    spine.set_color('white')
-                    spine.set_linewidth(1)
-                
-                # Adjust layout to prevent label cutoff
-                self.fig.tight_layout()
+                self.update_chart_with_data(
+                    df['waste_type'].tolist(),
+                    df['count'].tolist()
+                )
             else:
+                self.ax.clear()
                 self.ax.text(0.5, 0.5, 'No Data', color='white', ha='center', va='center')
+                self.draw()
                 
         except Exception as e:
             print(f"Error updating bar chart: {str(e)}")
+            self.ax.clear()
             self.ax.text(0.5, 0.5, 'Error Loading Data', color='white', ha='center', va='center')
-            
-        self.draw()
+            self.draw()
 
 class DetectionTableWidget(QWidget):
     def __init__(self, parent=None):
