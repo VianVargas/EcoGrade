@@ -72,3 +72,11 @@ ecograde/
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Font Dependency
+
+This project uses the "Fredoka" font for the main title. Please download the font and place the file as:
+
+    assets/fonts/Fredoka-Medium.ttf
+
+You can download the font from Google Fonts: https://fonts.google.com/specimen/Fredoka

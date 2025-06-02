@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QLabel
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 from src.ui.widgets.base_widgets import RoundedWidget
 
 class DetectionResultWidget(RoundedWidget):
@@ -10,6 +11,7 @@ class DetectionResultWidget(RoundedWidget):
         
         # Title label
         self.title_label = QLabel(title)
+        self.title_label.setFont(QFont('Segoe UI', 14, QFont.Bold))
         self.title_label.setStyleSheet("""
             QLabel {
                 color: white;
@@ -35,6 +37,7 @@ class DetectionResultWidget(RoundedWidget):
         # Value layout
         value_layout = QVBoxLayout(self.value_widget)
         self.value_label = QLabel(value)
+        self.value_label.setFont(QFont('Segoe UI', 16, QFont.Bold))
         self.value_label.setStyleSheet("""
             QLabel {
                 color: white;

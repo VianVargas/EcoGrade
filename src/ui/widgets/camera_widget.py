@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import QLabel
+from PyQt5.QtWidgets import QLabel, QGraphicsDropShadowEffect
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtGui import QImage, QPixmap, QColor, QFont
 import cv2
 import numpy as np
 from src.utils.video_processor import VideoProcessor
@@ -12,14 +12,27 @@ class CameraWidget(QLabel):
         super().__init__(parent)
         self.view_type = view_type
         self.setMinimumSize(200, 150)
+        
+        # Create glow effect
+        self.glow_effect = QGraphicsDropShadowEffect()
+        self.glow_effect.setBlurRadius(15)
+        self.glow_effect.setColor(QColor("#14e7a1"))
+        self.glow_effect.setOffset(0, 0)
+        self.glow_effect.setEnabled(False)  # Initially disabled
+        self.setGraphicsEffect(self.glow_effect)
+        
         self.setStyleSheet("""
             QLabel {
                 background-color: black;
                 border-radius: 10px;
-                border: 2px solid #1e40af;
+                border: 1px solid #3ac194;
+            }
+            QLabel:hover {
+                border: 2px solid #14e7a1;
             }
         """)
         self.setAlignment(Qt.AlignCenter)
+        self.setFont(QFont('Segoe UI', 12, QFont.Bold))
         self.setText(f"{view_type.replace('_', ' ').title()} View")
         
         self.video_processor = video_processor  # Use the shared VideoProcessor
@@ -27,6 +40,18 @@ class CameraWidget(QLabel):
         self.update_timer.timeout.connect(self.update_frame)
         self.camera_started = False
         self.error_message = None
+    
+    def enterEvent(self, event):
+        # Increase glow on hover
+        self.glow_effect.setBlurRadius(25)
+        self.glow_effect.setColor(QColor("#14e7a1"))
+        super().enterEvent(event)
+    
+    def leaveEvent(self, event):
+        # Reset glow on leave
+        self.glow_effect.setBlurRadius(15)
+        self.glow_effect.setColor(QColor("#3ac194"))
+        super().leaveEvent(event)
     
     def start_camera(self):
         if self.camera_started:
@@ -36,6 +61,9 @@ class CameraWidget(QLabel):
                 self.update_timer.start(33)  # ~30 FPS
                 self.camera_started = True
                 self.setText("")
+                # Enable glow effect when camera starts
+                self.glow_effect.setEnabled(True)
+                # No need to call start_camera on video_processor as it's already started
             else:
                 self.setText("No VideoProcessor")
         except Exception as e:
@@ -81,4 +109,9 @@ class CameraWidget(QLabel):
     def stop_camera(self):
         self.update_timer.stop()
         self.camera_started = False
-        self.setText(f"{self.view_type.replace('_', ' ').title()} View") 
+        self.setText(f"{self.view_type.replace('_', ' ').title()} View")
+        # Disable glow effect when camera stops
+        self.glow_effect.setEnabled(False)
+        # Clear any displayed frame
+        self.clear()
+        # No need to call stop_camera on video_processor as it's managed by the main view 
