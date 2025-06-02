@@ -27,26 +27,7 @@ class FrontPageWidget(QWidget):
         title.setStyleSheet("color: white;")
         title.setAlignment(Qt.AlignCenter)
         
-        # Subtitle lines
-        subtitle_lines = [
-            "LEVERAGING CONVOLUTIONAL NEURAL NETWORKS AND",
-            "MULTI-DECISION ANALYSIS FOR ADVANCED REAL-TIME",
-            "DETECTION AND QUALITY ASSESSMENT OF",
-            "NON-BIODEGRADABLE WASTE MATERIALS"
-        ]
-        
-        # Subtitle layout
-        subtitle_layout = QVBoxLayout()
-        subtitle_layout.setSpacing(10)
-        
-        subtitle_font = QFont("Intro Rust", 14)
-        for line in subtitle_lines:
-            label = QLabel(line)
-            label.setFont(subtitle_font)
-            label.setStyleSheet("color: white;")
-            label.setAlignment(Qt.AlignCenter)
-            subtitle_layout.addWidget(label)
-        
+
         # Start button
         start_btn = QPushButton("START")
         start_btn.setFixedSize(200, 60)
@@ -75,7 +56,6 @@ class FrontPageWidget(QWidget):
         # Add widgets to layout
         layout.addStretch(1)
         layout.addWidget(title)
-        layout.addLayout(subtitle_layout)
         layout.addStretch(1)
         layout.addWidget(start_btn, alignment=Qt.AlignCenter)
         layout.addStretch(1)
@@ -83,13 +63,21 @@ class FrontPageWidget(QWidget):
     def load_background_image(self):
         """Loads the image centered at original size (no scaling)."""
         image_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'START.jpg'))
+        print(f"Loading image from: {image_path}")  # Debug print
         if os.path.exists(image_path):
             pixmap = QPixmap(image_path)
-            self.background.setPixmap(pixmap)
-            self.background.setScaledContents(True)  # Enable scaling
-            self.background.setAlignment(Qt.AlignCenter)
-            self.background.show()
-            self.setStyleSheet("")
+            if not pixmap.isNull():
+                print(f"Image loaded successfully. Size: {pixmap.width()}x{pixmap.height()}")  # Debug print
+                self.background.setPixmap(pixmap)
+                self.background.setScaledContents(True)  # Enable scaling
+                self.background.setAlignment(Qt.AlignCenter)
+                self.background.raise_()  # Ensure background is behind other widgets
+                self.background.show()
+                self.setStyleSheet("")
+            else:
+                print("Warning: Failed to load image - pixmap is null")
+                self.background.hide()
+                self.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #111827, stop:1 #1e3a8a);")
         else:
             print(f"Warning: Image not found at {image_path}")
             self.background.hide()

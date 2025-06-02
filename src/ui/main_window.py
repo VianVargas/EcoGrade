@@ -1,4 +1,5 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget
+from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget, QDesktopWidget
+from PyQt5.QtGui import QIcon
 from .views.front_page import FrontPageWidget
 from .views.main_view import MainView
 from .analytics import AnalyticsWidget
@@ -11,8 +12,8 @@ class MainWindow(QMainWindow):
         self.initUI()
         
     def initUI(self):
-        self.setWindowTitle('Object Detection Dashboard')
-        self.setGeometry(100, 100, 1200, 800)
+        self.setFixedSize(1280, 720)  # Set the window size
+        self.center()         
         self.setStyleSheet("QMainWindow { background-color: #111827; }")
         
         # Create central widget
@@ -40,6 +41,16 @@ class MainWindow(QMainWindow):
         # Initially hide sidebar and show front page
         self.show_front_page()
         
+    def center(self):
+        # Get the screen geometry
+        qr = self.frameGeometry()
+        # Get the center point of the screen
+        cp = QDesktopWidget().availableGeometry().center()
+        # Move the rectangle's center to the screen center
+        qr.moveCenter(cp)
+        # Move the top-left point of the window to match the centered rectangle
+        self.move(qr.topLeft())
+        
     def create_sidebar(self):
         sidebar = QWidget()
         sidebar.setFixedWidth(80)
@@ -49,28 +60,21 @@ class MainWindow(QMainWindow):
         sidebar_layout.setSpacing(10)
         sidebar_layout.setContentsMargins(10, 20, 10, 20)
         
-        # Logo placeholder
-        logo_btn = SidebarButton("logo.png")
-        logo_btn.setText("🔄")
-        logo_btn.setStyleSheet(logo_btn.styleSheet() + "QPushButton { background-color: #10b981; }")
-        
         # Back to front page button
-        front_btn = SidebarButton("front.png")
-        front_btn.setText("◀")
+        front_btn = SidebarButton("src/ui/assets/corner-up-left.svg")
         front_btn.clicked.connect(lambda: self.switch_view("front"))
         
         # Navigation buttons
-        home_btn = SidebarButton("home.png")
+        home_btn = SidebarButton("src/ui/assets/home.svg")
         home_btn.clicked.connect(lambda: self.switch_view("main"))
         
-        analytics_btn = SidebarButton("stats.png")
+        analytics_btn = SidebarButton("src/ui/assets/bar-chart.svg")
         analytics_btn.clicked.connect(lambda: self.switch_view("analytics"))
         
-        info_btn = SidebarButton("info.png")
-        power_btn = SidebarButton("power.png")
+        info_btn = SidebarButton("src/ui/assets/info.svg")
+        power_btn = SidebarButton("src/ui/assets/power.svg")
         power_btn.clicked.connect(self.close)
         
-        sidebar_layout.addWidget(logo_btn)
         sidebar_layout.addWidget(front_btn)
         sidebar_layout.addSpacing(20)
         sidebar_layout.addWidget(home_btn)

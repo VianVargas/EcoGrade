@@ -212,8 +212,8 @@ class AnalyticsWidget(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels([
-            'ID', 'Type', 'Transparency', 
-            'Contamination', 'Classification', 'Timestamp'
+            'ID', 'Timestamp', 'Transparency', 
+            'Contamination', 'Classification', 'Type'
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setMaximumHeight(300)
@@ -350,14 +350,6 @@ class AnalyticsWidget(QWidget):
                 self.bar_chart.setYRange(0, max_count * 1.2)
                 ax.setStyle(showValues=True)
                 ax.setHeight(50)
-                # Draw legend for bar chart
-                legend = self.bar_chart.plotItem.legend
-                if legend is not None:
-                    legend.scene().removeItem(legend)
-                legend = pg.LegendItem(offset=(70, 10))
-                legend.setParentItem(self.bar_chart.plotItem)
-                for wt in bar_df['waste_type']:
-                    legend.addItem(pg.PlotDataItem(pen=None, symbolBrush=get_bar_color(wt)), wt)
                 
         except Exception as e:
             print(f"Error updating charts: {str(e)}")

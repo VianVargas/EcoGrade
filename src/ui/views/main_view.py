@@ -18,18 +18,19 @@ class MainView(QWidget):
         
     def initUI(self):
         layout = QHBoxLayout()
-        layout.setSpacing(8)  # Make left and right panels closer
+        layout.setSpacing(30)  # Make left and right panels closer
         
         # Left side - Camera feeds
         left_widget = RoundedWidget()
         left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(20, 20, 20, 20)  # Add margins to move content lower
         
         # Camera grid
         camera_grid = QGridLayout()
-        camera_grid.setSpacing(5)
+        camera_grid.setSpacing(15)  # Increase spacing between camera frames
         
         # Set fixed size for camera widgets
-        CAMERA_WIDTH = 320
+        CAMERA_WIDTH = 300
         CAMERA_HEIGHT = 280
         
         # Create camera widgets with the shared video processor
@@ -81,6 +82,7 @@ class MainView(QWidget):
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
         right_layout.setSpacing(15)
+        right_layout.setContentsMargins(20, 20, 20, 20)  # Add margins to move content lower
         
         # Detection result panels
         self.plastic_type_widget = DetectionResultWidget("WASTE TYPE:", "-")
