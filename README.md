@@ -1,4 +1,4 @@
-# EcoGrade - Object Detection Dashboard
+# ECOGRADE - Object Detection Dashboard
 
 A modern PyQt5-based dashboard for object detection and analysis.
 
@@ -17,7 +17,7 @@ A modern PyQt5-based dashboard for object detection and analysis.
 
 ```bash
 git clone https://github.com/VianVargas/EcoGrade.git
-cd ecograde
+cd EcoGrade
 ```
 
 2. Create a virtual environment (recommended):
@@ -40,7 +40,7 @@ pip install -r requirements.txt
 
 - **Fonts:**
   - `src/ui/assets/fonts/Fredoka-Medium.ttf`
-  - `src/ui/assets/fonts/Fredoka-SemiBold.ttf`
+  - `src/ui/assets/fonts/Fredoka-SemiBold.ttf` (used for ECOGRADE title)
 - **SVGs and Images:**
   - `src/ui/assets/LOGO.png`
   - `src/ui/assets/home.svg`
@@ -62,7 +62,7 @@ python main.py
 ## Project Structure
 
 ```
-EcoGrade/
+ECOGRADE/
 ├── main.py
 ├── requirements.txt
 ├── README.md
@@ -108,14 +108,6 @@ Install with:
 ```bash
 pip install -r requirements.txt
 ```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
 
 ## License
 

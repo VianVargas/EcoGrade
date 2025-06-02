@@ -171,7 +171,7 @@ class FrontPageWidget(QWidget):
 
         # ECOGRADE title with solid colors (no animation)
         self.title = QLabel()
-        title_font = QFont("Fredoka Medium", 96, QFont.Medium)
+        title_font = QFont("Fredoka SemiBold", 96, QFont.Medium)
         self.title.setFont(title_font)
         self.title.setStyleSheet("margin-left: 2px;")
         self.title.setAlignment(Qt.AlignCenter)
