@@ -20,7 +20,11 @@ class MainView(QWidget):
         layout = QHBoxLayout()
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         layout.setSpacing(30)  # Make left and right panels closer
+=======
+        layout.setSpacing(10)  # Make left and right panels closer
+>>>>>>> Stashed changes
 =======
         layout.setSpacing(10)  # Make left and right panels closer
 >>>>>>> Stashed changes
@@ -40,8 +44,13 @@ class MainView(QWidget):
         # Set fixed size for camera widgets
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
         CAMERA_WIDTH = 300
         CAMERA_HEIGHT = 280
+=======
+        CAMERA_WIDTH = 320
+        CAMERA_HEIGHT = 240
+>>>>>>> Stashed changes
 =======
         CAMERA_WIDTH = 320
         CAMERA_HEIGHT = 240
