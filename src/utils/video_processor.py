@@ -12,6 +12,8 @@ from datetime import datetime
 import sqlite3
 from pathlib import Path
 import math
+import random
+import string
 
 def detect_residue_colors(frame):
     if frame is None or frame.size == 0:
@@ -274,6 +276,8 @@ class VideoProcessor:
             self.object_trackers = {}  # id: {centroid, timer, state, result}
             self.next_object_id = 1
             self.finalized_ids = set()
+            # --- Frame skipping counter ---
+            self._frame_skip_counter = 0
     
     def initialize(self):
         if not VideoProcessor._initialized:
@@ -454,9 +458,22 @@ class VideoProcessor:
                 return obj_id
         return None
 
+    def _generate_unique_id(self):
+        # Generate a unique 4-character alphanumeric ID
+        while True:
+            new_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+            if new_id not in self.object_trackers and new_id not in self.finalized_ids:
+                return new_id
+
     def _process_frames(self):
+        # This method already runs in a separate thread for performance
         while self.running:
             if not self.frame_queue.empty() and not self.processing:
+                # --- Frame skipping: only process every 2nd frame ---
+                self._frame_skip_counter += 1
+                if self._frame_skip_counter % 2 != 0:
+                    self.frame_queue.get()  # Discard this frame
+                    continue
                 self.processing = True
                 frame = self.frame_queue.get()
                 try:
@@ -501,8 +518,7 @@ class VideoProcessor:
                             centroid = self._get_centroid(x1, y1, x2, y2)
                             obj_id = self._match_object(centroid)
                             if obj_id is None:
-                                obj_id = self.next_object_id
-                                self.next_object_id += 1
+                                obj_id = self._generate_unique_id()
                                 self.object_trackers[obj_id] = {
                                     'centroid': centroid,
                                     'timer': now,
@@ -556,7 +572,29 @@ class VideoProcessor:
                     # Process transparency
                     if object_detected and current_waste_type != 'Tin-Steel Can':
                         transparency_vis, transparency_level = detect_transparency(frame_cropped, object_mask, self.background)
-                        transparency_vis = self.add_scan_effect(transparency_vis, is_tin=False, boxes=current_boxes)
+                        # --- Add mask overlay for opacity_scan (top-right) ---
+                        if transparency_level in ['Clear', 'Semi-Opaque', 'Opaque']:
+                            if transparency_level == 'Clear':
+                                mask_color = (0, 255, 0)  # Green
+                            elif transparency_level == 'Semi-Opaque':
+                                mask_color = (255, 165, 0)  # Orange
+                            else:
+                                mask_color = (255, 0, 0)  # Red
+                            mask_overlay = np.zeros_like(transparency_vis)
+                            mask_overlay[object_mask > 0] = mask_color
+                            # Blend mask with some transparency
+                            transparency_vis = cv2.addWeighted(transparency_vis, 1, mask_overlay, 0.35, 0)
+                            # Add glow/flicker effect
+                            glow = np.zeros_like(transparency_vis)
+                            for x1, y1, x2, y2, cls_id, conf in current_boxes:
+                                cv2.rectangle(glow, (x1, y1), (x2, y2), mask_color, 18)
+                            alpha = 0.18 + 0.12 * np.sin(self.animation_time * 4)
+                            glow = cv2.GaussianBlur(glow, (25, 25), 0)
+                            transparency_vis = cv2.addWeighted(transparency_vis, 1, glow, alpha, 0)
+                            # Draw bounding box for clarity
+                            for x1, y1, x2, y2, cls_id, conf in current_boxes:
+                                cv2.rectangle(transparency_vis, (x1, y1), (x2, y2), mask_color, 2)
+                        # Do NOT call add_scan_effect here (no scan line)
                     else:
                         transparency_vis = model_output.copy()
                         transparency_level = 'N/A' if current_waste_type == 'Tin-Steel Can' else '-'

@@ -22,60 +22,57 @@ class PieChartWidget(FigureCanvas):
             'Rejects': '#FFC107',      # Yellow
             'Mixed': '#F44336'         # Red
         }
+        self.legend = None
         self.update_chart()
 
     def update_chart_with_data(self, items, values):
         self.ax.clear()
-        if not items or not values:
-            self.ax.text(0.5, 0.5, 'No Data', color='white', ha='center', va='center')
+        all_classes = list(self.classification_colors.keys())
+        data_dict = dict(zip(items, values))
+        values_full = [data_dict.get(cls, 0) for cls in all_classes]
+        colors = [self.classification_colors[cls] for cls in all_classes]
+        if sum(values_full) == 0:
+            self.ax.set_xticks([])
+            self.ax.set_yticks([])
+            for spine in self.ax.spines.values():
+                spine.set_visible(True)
+                spine.set_color('white')
+                spine.set_linewidth(1)
+            self.ax.text(0.5, 0.5, 'No Data', color='white', ha='center', va='center', fontsize=16, fontweight='bold', transform=self.ax.transAxes)
+            self.fig.tight_layout()
             self.draw()
             return
-
-        # Get colors for each classification
-        colors = [self.classification_colors.get(c, '#bdbdbd') for c in items]
-        
         # Create pie chart
         wedges, texts, autotexts = self.ax.pie(
-            values,
+            values_full,
             labels=None,
             colors=colors,
-            autopct='%1.1f%%',
+            autopct=lambda pct: f'{pct:.1f}%' if pct > 0 else '',
             textprops={'color': 'white', 'fontsize': 8},
             wedgeprops={'linewidth': 1, 'edgecolor': '#16324b'}
         )
-
-        # Style percentage labels
         for autotext in autotexts:
             autotext.set_color('white')
             autotext.set_fontsize(8)
-
-        # Add border
         for spine in self.ax.spines.values():
             spine.set_visible(True)
             spine.set_color('#16324b')
             spine.set_linewidth(1)
-
-        # Create legend with all classifications
-        legend_handles = []
-        legend_labels = []
-        for classification in self.classification_colors.keys():
-            if classification in items:
-                legend_handles.append(plt.Rectangle((0, 0), 1, 1, 
-                    facecolor=self.classification_colors[classification]))
-                legend_labels.append(classification.replace(' Recyclable', ''))
-
-        if legend_handles:
-            legend = self.ax.legend(
-                handles=legend_handles,
-                labels=legend_labels,
-                loc='upper left',
-                bbox_to_anchor=(-0.25, 0.9),
-                frameon=False,
-                fontsize=8
-            )
-            for text in legend.get_texts():
-                text.set_color('white')
-
+        # Always show all 4 legend items
+        legend_handles = [plt.Rectangle((0, 0), 1, 1, facecolor=self.classification_colors[cls]) for cls in all_classes]
+        legend_labels = [cls.replace(' Recyclable', '') for cls in all_classes]
+        if self.legend:
+            self.legend.remove()
+        self.legend = self.ax.legend(
+            handles=legend_handles,
+            labels=legend_labels,
+            loc='upper left',
+            bbox_to_anchor=(-0.25, 0.9),
+            frameon=False,
+            fontsize=8
+        )
+        for text in self.legend.get_texts():
+            text.set_color('white')
         self.fig.tight_layout()
         self.draw()
 
@@ -129,9 +126,15 @@ class BarChartWidget(FigureCanvas):
         
     def update_chart_with_data(self, items, values):
         self.ax.clear()
-        
         if not items or not values:
-            self.ax.text(0.5, 0.5, 'No Data', color='white', ha='center', va='center')
+            self.ax.set_xticks([])
+            self.ax.set_yticks([])
+            for spine in self.ax.spines.values():
+                spine.set_visible(True)
+                spine.set_color('white')
+                spine.set_linewidth(1)
+            self.ax.text(0.5, 0.5, 'No Data', color='white', ha='center', va='center', fontsize=16, fontweight='bold', transform=self.ax.transAxes)
+            self.fig.tight_layout()
             self.draw()
             return
             

@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, 
-                             QTableWidgetItem, QHeaderView, QFrame, QLabel, QSizePolicy, QPushButton, QComboBox)
+                             QTableWidgetItem, QHeaderView, QFrame, QLabel, QSizePolicy, QPushButton, QComboBox, QScrollArea)
 from PyQt5.QtCore import Qt, QTimer, QRect
 from PyQt5.QtGui import QPainter, QColor, QPen, QFont, QPalette
 import pyqtgraph as pg
@@ -36,7 +36,6 @@ BAR_TYPE_COLORS = {
     'PP': '#ffa726',
     'LDPE': '#ab47bc',
     'Tin-Steel Can': '#bdbdbd',
-    'Mixed Trash': '#8d6e63',
     'UHT Box': '#ff7043',
     'Other': '#789262',
 }
@@ -93,9 +92,25 @@ class AnalyticsWidget(QWidget):
     def init_ui(self):
         # Main layout
         main_layout = QVBoxLayout(self)
-        main_layout.setSpacing(16)
-        main_layout.setContentsMargins(16, 16, 16, 16)
-        
+        main_layout.setSpacing(0)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Set background color for analytics view and scroll area
+        self.setStyleSheet("background-color: #111827;")
+
+        # Add a scroll area for the analytics content
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+        scroll.setStyleSheet("QScrollArea { border: none; background: #111827; }")
+
+        content_widget = QWidget()
+        content_widget.setStyleSheet("background-color: #111827;")
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.setSpacing(16)
+        content_layout.setContentsMargins(16, 16, 16, 16)
+
         # Top section (Table and Pie Chart)
         top_layout = QHBoxLayout()
         top_layout.setSpacing(16)
@@ -106,10 +121,11 @@ class AnalyticsWidget(QWidget):
         # Add filter controls
         filter_layout = QHBoxLayout()
         filter_layout.setSpacing(10)
+        filter_layout.addSpacing(16)  # Move filter row right by 16px
         
         # Time filter dropdown
         time_filter_label = QLabel("Time Range:")
-        time_filter_label.setStyleSheet("color: white; font-size: 12px; padding: 0; border: none;")
+        time_filter_label.setStyleSheet("color: white; font-size: 11px; padding: 0; border: none;")
         self.time_filter = QComboBox()
         self.time_filter.addItems(["Past Hour", "Past Day", "Past Week", "Past Month"])
         
@@ -120,9 +136,8 @@ class AnalyticsWidget(QWidget):
                 color: white;
                 border: 1px solid #16324b;
                 border-radius: 5px;
-                padding: 5px 10px;
+                padding: 1px 3px;
                 font-size: 12px;
-                min-width: 120px;
             }
             QComboBox:hover {
                 border: 1px solid #3ac194;
@@ -147,20 +162,20 @@ class AnalyticsWidget(QWidget):
         
         # Add dropdown filters
         type_filter_label = QLabel("Type:")
-        type_filter_label.setStyleSheet("color: white; font-size: 12px; padding: 0; border: none;")
+        type_filter_label.setStyleSheet("color: white; font-size: 11px; padding: 0; border: none;")
         self.type_filter = QComboBox()
         self.type_filter.addItem("All Types")
         self.type_filter.addItems([
-            "PET Bottle", "HDPE Plastic", "PP", "LDPE", 
-            "Tin-Steel Can", "Mixed Trash", "UHT Box", "Other"
+            "PET", "HDPE", "PP", "LDPE", 
+            "Tin-Steel Can", "Mixed"
         ])
         
         classification_filter_label = QLabel("Classification:")
-        classification_filter_label.setStyleSheet("color: white; font-size: 12px; padding: 0; border: none;")
+        classification_filter_label.setStyleSheet("color: white; font-size: 11px; padding: 0; border: none;")
         self.classification_filter = QComboBox()
         self.classification_filter.addItem("All Classifications")
         self.classification_filter.addItems([
-            "High Value Recyclable", "Low Value", "Rejects", "Mixed"
+            "High Value", "Low Value", "Rejects", "Mixed"
         ])
         
         # Apply dropdown style to all comboboxes
@@ -206,7 +221,7 @@ class AnalyticsWidget(QWidget):
                 background-color: #111827;
                 color: white;
                 gridline-color: #16324b;
-                border: none;
+                border: 1px solid #16324b;
             }
             QHeaderView::section {
                 background-color: #111827;
@@ -242,17 +257,20 @@ class AnalyticsWidget(QWidget):
         bar_panel.content_layout.addWidget(self.bar_chart)
         
         # Add layouts to main layout
-        main_layout.addLayout(top_layout)
-        main_layout.addWidget(bar_panel)
+        content_layout.addLayout(top_layout)
+        content_layout.addWidget(bar_panel)
+        scroll.setWidget(content_widget)
+        main_layout.addWidget(scroll)
         
-        # Initialize charts
-        self.update_charts()
+        # Schedule initial updates after UI is set up for smoother startup
+        QTimer.singleShot(0, self.update_table)
+        QTimer.singleShot(0, self.update_charts)
         
     def setup_timer(self):
         # Update every 3 seconds
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_data)
-        self.timer.start(3000)  # Increased to 3 seconds to reduce flickering
+        self.timer.start(1000)  # Faster updates: 1 second
         
     def update_time_filter(self, time_filter):
         # Update all charts with the new time filter
@@ -293,7 +311,7 @@ class AnalyticsWidget(QWidget):
             
             query += """
             ORDER BY timestamp DESC
-            LIMIT 10
+            LIMIT 100
             """
             
             df = pd.read_sql_query(query, conn)
