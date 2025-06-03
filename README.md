@@ -41,8 +41,9 @@ pip install -r requirements.txt
 - **Fonts:**
   - `src/ui/assets/fonts/Fredoka-Medium.ttf`
   - `src/ui/assets/fonts/Fredoka-SemiBold.ttf` (used for ECOGRADE title)
-- **SVGs and Images:**
+- **SVGs, ICOs, and Images:**
   - `src/ui/assets/LOGO.png`
+  - `src/ui/assets/LOGO.ico`
   - `src/ui/assets/home.svg`
   - `src/ui/assets/bar-chart.svg`
   - `src/ui/assets/corner-up-left.svg`
