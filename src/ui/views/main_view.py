@@ -44,24 +44,24 @@ class MainView(QWidget):
         self.object_detection_camera = CameraWidget(view_type="object_detection", video_processor=self.video_processor)
         self.opacity_scan_camera = CameraWidget(view_type="opacity_scan", video_processor=self.video_processor)
         self.residue_scan_camera = CameraWidget(view_type="residue_scan", video_processor=self.video_processor)
-        self.mask_view_camera = CameraWidget(view_type="mask_view", video_processor=self.video_processor)
+        self.mask_camera = CameraWidget(view_type="mask", video_processor=self.video_processor)
         
         # Set fixed size for all camera widgets
         for camera in [self.object_detection_camera, self.opacity_scan_camera, 
-                      self.residue_scan_camera, self.mask_view_camera]:
+                      self.residue_scan_camera, self.mask_camera]:
             camera.setFixedSize(CAMERA_WIDTH, CAMERA_HEIGHT)
         
         # Add cameras to grid
         camera_grid.addWidget(self.object_detection_camera, 0, 0)  # Top left
         camera_grid.addWidget(self.opacity_scan_camera, 0, 1)      # Top right
         camera_grid.addWidget(self.residue_scan_camera, 1, 0)      # Bottom left
-        camera_grid.addWidget(self.mask_view_camera, 1, 1)         # Bottom right
+        camera_grid.addWidget(self.mask_camera, 1, 1)         # Bottom right
         
         # Connect signals
         self.object_detection_camera.result_updated.connect(self.update_detection_results)
         self.opacity_scan_camera.result_updated.connect(self.update_detection_results)
         self.residue_scan_camera.result_updated.connect(self.update_detection_results)
-        self.mask_view_camera.result_updated.connect(self.update_detection_results)
+        self.mask_camera.result_updated.connect(self.update_detection_results)
         
         # Start/Stop button
         self.start_btn = QPushButton("START")
@@ -181,11 +181,11 @@ class MainView(QWidget):
                 self.video_processor.initialize()
                 self.video_processor.start()
                 # Animate camera widgets (faster fade-in)
-                for cam in [self.object_detection_camera, self.opacity_scan_camera, self.residue_scan_camera, self.mask_view_camera]:
+                for cam in [self.object_detection_camera, self.opacity_scan_camera, self.residue_scan_camera, self.mask_camera]:
                     cam.setWindowOpacity(0.0)
                 def fade_in_step(step=0):
                     if step <= 2:  # Reduce steps for even faster fade-in
-                        for cam in [self.object_detection_camera, self.opacity_scan_camera, self.residue_scan_camera, self.mask_view_camera]:
+                        for cam in [self.object_detection_camera, self.opacity_scan_camera, self.residue_scan_camera, self.mask_camera]:
                             cam.setWindowOpacity(step/2)
                         QTimer.singleShot(5, lambda: fade_in_step(step+1))  # Faster interval
                 fade_in_step()
@@ -193,7 +193,7 @@ class MainView(QWidget):
                 self.object_detection_camera.start_camera()
                 self.opacity_scan_camera.start_camera()
                 self.residue_scan_camera.start_camera()
-                self.mask_view_camera.start_camera()
+                self.mask_camera.start_camera()
                 # Set a timer to update results after 2 seconds
                 QTimer.singleShot(2000, lambda: self.update_detection_results({
                     'waste_type': 'Analyzing...',
@@ -207,7 +207,7 @@ class MainView(QWidget):
                 self.object_detection_camera.stop_camera()
                 self.opacity_scan_camera.stop_camera()
                 self.residue_scan_camera.stop_camera()
-                self.mask_view_camera.stop_camera()
+                self.mask_camera.stop_camera()
                 self.start_btn.setText("START")
                 self.start_btn.setStyleSheet("""
                     QPushButton {
@@ -232,7 +232,7 @@ class MainView(QWidget):
             self.object_detection_camera.stop_camera()
             self.opacity_scan_camera.stop_camera()
             self.residue_scan_camera.stop_camera()
-            self.mask_view_camera.stop_camera()
+            self.mask_camera.stop_camera()
 
     def update_charts(self):
         """Update the charts with new measurements."""
@@ -266,20 +266,20 @@ class MainView(QWidget):
                 self.object_detection_camera.start_camera()
                 self.opacity_scan_camera.start_camera()
                 self.residue_scan_camera.start_camera()
-                self.mask_view_camera.start_camera()
+                self.mask_camera.start_camera()
             else:
                 self.start_btn.setText("START")
                 self.object_detection_camera.stop_camera()
                 self.opacity_scan_camera.stop_camera()
                 self.residue_scan_camera.stop_camera()
-                self.mask_view_camera.stop_camera()
+                self.mask_camera.stop_camera()
         except Exception as e:
             print(f"Error in toggle_camera: {str(e)}")
             self.start_btn.setText("START")
             self.object_detection_camera.stop_camera()
             self.opacity_scan_camera.stop_camera()
             self.residue_scan_camera.stop_camera()
-            self.mask_view_camera.stop_camera()
+            self.mask_camera.stop_camera()
 
     def closeEvent(self, event):
         """Handle window close event."""

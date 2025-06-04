@@ -23,6 +23,7 @@ class CameraWidget(QLabel):
         
         self.setStyleSheet("""
             QLabel {
+                color: #3ac194;
                 background-color: black;
                 border-radius: 10px;
                 border: 1px solid #3ac194;
@@ -32,8 +33,9 @@ class CameraWidget(QLabel):
             }
         """)
         self.setAlignment(Qt.AlignCenter)
-        self.setFont(QFont('Segoe UI', 12, QFont.Bold))
+        self.setFont(QFont('Fredoka SemiBold', 12, QFont.Bold))
         self.setText(f"{view_type.replace('_', ' ').title()} View")
+
         
         self.video_processor = video_processor  # Use the shared VideoProcessor
         self.update_timer = QTimer()
@@ -82,7 +84,7 @@ class CameraWidget(QLabel):
                 frame = frames['opacity']
             elif self.view_type == "residue_scan":
                 frame = frames['residue']
-            elif self.view_type == "mask_view":
+            elif self.view_type == "mask":
                 frame = frames['mask']
             else:
                 frame = frames['model']  # Default to model view
