@@ -187,7 +187,7 @@ class FrontPageWidget(QWidget):
         layout.addWidget(start_btn, alignment=Qt.AlignHCenter)
 
         layout.addStretch(1)
-
+    
     def initAnimations(self):
         # Blob animation timer
         self._wobble_phase = 0.0
@@ -253,7 +253,7 @@ class FrontPageWidget(QWidget):
                 base_x + x_dir * wobble(blob_w * 0.7, 1.8, 9, phase_offset+0.8), base_y + y_dir * wobble(blob_h * 0.21, 1.9, 9, phase_offset+0.9),
                 base_x + x_dir * wobble(blob_w, 2.0, 9, phase_offset+1.0), base_y + y_dir * wobble(blob_h * 0.28, 2.1, 9, phase_offset+1.1),
                 base_x + x_dir * wobble(blob_w, 2.2, 9, phase_offset+1.2), base_y + y_dir * wobble(blob_h * 0.13, 2.3, 9, phase_offset+1.3)
-            )
+        )
             glow_path.lineTo(base_x + x_dir * blob_w, base_y)
             glow_path.lineTo(base_x, base_y)
             glow_path.closeSubpath()
@@ -306,7 +306,7 @@ class FrontPageWidget(QWidget):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.update()
-
+    
     def go_to_main(self):
         if self.parent_window:
             self.parent_window.switch_view("main")

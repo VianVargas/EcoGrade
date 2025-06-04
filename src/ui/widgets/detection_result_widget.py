@@ -11,12 +11,13 @@ class DetectionResultWidget(RoundedWidget):
         
         # Title label
         self.title_label = QLabel(title)
-        self.title_label.setFont(QFont('Segoe UI', 14, QFont.Bold))
+        self.title_label.setFont(QFont('Fredoka Medium', 14, QFont.DemiBold))
         self.title_label.setStyleSheet("""
             QLabel {
                 color: white;
+                font-family: 'Fredoka Medium';
                 font-size: 14px;
-                font-weight: bold;
+                font-weight: 600;
                 background-color: transparent;
                 border: none;
             }
@@ -37,12 +38,13 @@ class DetectionResultWidget(RoundedWidget):
         # Value layout
         value_layout = QVBoxLayout(self.value_widget)
         self.value_label = QLabel(value)
-        self.value_label.setFont(QFont('Segoe UI', 16, QFont.Bold))
+        self.value_label.setFont(QFont('Fredoka Medium', 16, QFont.DemiBold))
         self.value_label.setStyleSheet("""
             QLabel {
                 color: white;
+                font-family: 'Fredoka Medium';
                 font-size: 16px;
-                font-weight: bold;
+                font-weight: 600;
                 background-color: transparent;
                 border: none;
             }
@@ -57,4 +59,30 @@ class DetectionResultWidget(RoundedWidget):
     
     def update_value(self, new_value):
         """Update the displayed value"""
-        self.value_label.setText(str(new_value)) 
+        self.value_label.setText(str(new_value))
+    
+    def set_font(self, font_family):
+        """Update the font for both title and value labels"""
+        self.title_label.setFont(QFont(font_family, 14, QFont.DemiBold))
+        self.value_label.setFont(QFont(font_family, 16, QFont.DemiBold))
+        # Update stylesheets to include font family
+        self.title_label.setStyleSheet(f"""
+            QLabel {{
+                color: white;
+                font-family: '{font_family}';
+                font-size: 14px;
+                font-weight: 600;
+                background-color: transparent;
+                border: none;
+            }}
+        """)
+        self.value_label.setStyleSheet(f"""
+            QLabel {{
+                color: white;
+                font-family: '{font_family}';
+                font-size: 16px;
+                font-weight: 600;
+                background-color: transparent;
+                border: none;
+            }}
+        """) 

@@ -1,15 +1,15 @@
-# ECOGRADE - Object Detection Dashboard
+# EcoGrade - Environmental Analysis Dashboard
 
-A modern PyQt5-based dashboard for object detection and analysis.
+A modern PyQt5-based dashboard for environmental data analysis and visualization.
 
 ## Features
 
-- Modern and responsive UI with a dark theme
-- Multiple camera feed support
-- Real-time object detection (YOLOv11s)
-- Statistical analysis and visualization
-- Interactive charts and graphs
-- Hardware servo support (optional)
+- Modern and responsive UI with gradient backgrounds and dynamic animations
+- Interactive data visualization and analytics
+- Real-time data processing and analysis
+- Statistical analysis and reporting
+- Multiple view support (Front Page, Main View, Analytics, About)
+- Cross-platform compatibility
 
 ## Installation
 
@@ -17,7 +17,7 @@ A modern PyQt5-based dashboard for object detection and analysis.
 
 ```bash
 git clone https://github.com/VianVargas/EcoGrade.git
-cd EcoGrade
+cd ecograde
 ```
 
 2. Create a virtual environment (recommended):
@@ -40,9 +40,8 @@ pip install -r requirements.txt
 
 - **Fonts:**
   - `src/ui/assets/fonts/Fredoka-Medium.ttf`
-  - `src/ui/assets/fonts/Fredoka-SemiBold.ttf` (used for ECOGRADE title)
-- **SVGs, ICOs, and Images:**
-  - `src/ui/assets/LOGO.png`
+  - `src/ui/assets/fonts/Fredoka-SemiBold.ttf`
+- **SVGs and Images:**
   - `src/ui/assets/LOGO.ico`
   - `src/ui/assets/home.svg`
   - `src/ui/assets/bar-chart.svg`
@@ -60,50 +59,42 @@ Run the application:
 python main.py
 ```
 
+The application features a modern interface with:
+- A front page with gradient animations and dynamic UI elements
+- A main view for primary functionality with real-time camera feeds
+- An analytics view for data visualization with interactive charts
+- An about page with team information and project details
+- A sidebar for easy navigation between views
+
 ## Project Structure
 
 ```
-ECOGRADE/
-├── main.py
-├── requirements.txt
-├── README.md
+EcoGrade/
+├── main.py                 # Application entry point
+├── requirements.txt        # Python dependencies
+├── README.md              # Project documentation
 ├── src/
-│   ├── main.py
 │   ├── __init__.py
-│   ├── hardware/
-│   ├── utils/
-│   └── ui/
-│       ├── main_window.py
-│       ├── analytics.py
-│       ├── start_page.py
-│       ├── assets/
-│       │   ├── fonts/
-│       │   │   ├── Fredoka-Medium.ttf
-│       │   │   └── Fredoka-SemiBold.ttf
-│       │   ├── LOGO.png
-│       │   ├── home.svg
-│       │   ├── bar-chart.svg
-│       │   ├── corner-up-left.svg
-│       │   ├── power.svg
-│       │   └── info.svg
-│       ├── widgets/
-│       └── views/
-├── data/
-│   └── measurements.db
-└── scripts/
-    └── update_detection_ids.py
+│   ├── ui/
+│   │   ├── main_window.py # Main window implementation
+│   │   ├── analytics.py   # Analytics widget
+│   │   ├── assets/        # UI assets (fonts, icons)
+│   │   ├── widgets/       # Custom widgets
+│   │   └── views/         # Different view implementations
+│   │       ├── front_page.py
+│   │       ├── main_view.py
+│   │       └── about_view.py
+│   └── utils/             # Utility functions
+└── data/                  # Data storage
 ```
 
 ## Python Dependencies
 
 All required Python packages are listed in `requirements.txt`. This includes:
 - PyQt5 (UI framework)
-- opencv-python (camera and image processing)
 - numpy, pandas (data processing)
 - matplotlib, pyqtgraph (visualization)
-- ultralytics, torch (YOLOv11s model)
 - openpyxl (Excel export)
-- adafruit-pca9685, adafruit-circuitpython-motor, adafruit-blinka, board, busio (servo hardware support)
 
 Install with:
 ```bash

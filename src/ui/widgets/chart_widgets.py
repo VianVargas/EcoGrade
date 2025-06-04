@@ -16,8 +16,8 @@ class PieChartWidget(FigureCanvas):
         super().__init__(self.fig)
         self.setParent(parent)
         self.ax = self.fig.add_subplot(111, facecolor='#111827')
-        self.classification_colors = {
-            'High Value Recyclable': '#4CAF50',   # Green
+        self.color_map = {
+            'High Value': '#4CAF50',   # Green
             'Low Value': '#2196F3',    # Blue
             'Rejects': '#FFC107',      # Yellow
             'Mixed': '#F44336'         # Red
@@ -27,10 +27,10 @@ class PieChartWidget(FigureCanvas):
 
     def update_chart_with_data(self, items, values):
         self.ax.clear()
-        all_classes = list(self.classification_colors.keys())
+        all_classes = list(self.color_map.keys())
         data_dict = dict(zip(items, values))
         values_full = [data_dict.get(cls, 0) for cls in all_classes]
-        colors = [self.classification_colors[cls] for cls in all_classes]
+        colors = [self.color_map[cls] for cls in all_classes]
         if sum(values_full) == 0:
             self.ax.set_xticks([])
             self.ax.set_yticks([])
@@ -59,20 +59,20 @@ class PieChartWidget(FigureCanvas):
             spine.set_color('#16324b')
             spine.set_linewidth(1)
         # Always show all 4 legend items
-        legend_handles = [plt.Rectangle((0, 0), 1, 1, facecolor=self.classification_colors[cls]) for cls in all_classes]
+        legend_handles = [plt.Rectangle((0, 0), 1, 1, facecolor=self.color_map[cls]) for cls in all_classes]
         legend_labels = [cls.replace(' Recyclable', '') for cls in all_classes]
         if self.legend:
             self.legend.remove()
         self.legend = self.ax.legend(
-            handles=legend_handles,
-            labels=legend_labels,
-            loc='upper left',
-            bbox_to_anchor=(-0.25, 0.9),
-            frameon=False,
-            fontsize=8
-        )
+                handles=legend_handles,
+                labels=legend_labels,
+                loc='upper left',
+                bbox_to_anchor=(-0.25, 0.9),
+                frameon=False,
+                fontsize=8
+            )
         for text in self.legend.get_texts():
-            text.set_color('white')
+                text.set_color('white')
         self.fig.tight_layout()
         self.draw()
 
@@ -163,7 +163,7 @@ class BarChartWidget(FigureCanvas):
         
         # Set x-axis limits to prevent single bar from stretching
         if num_items == 1:
-            self.ax.set_xlim(-0.5, 1.5)  # Center the single bar with padding
+            self.ax.set_xlim(-0.5, 1)  # Center the single bar with padding
         else:
             self.ax.set_xlim(-0.5, len(items) - 0.5)  # Add padding for multiple bars
         

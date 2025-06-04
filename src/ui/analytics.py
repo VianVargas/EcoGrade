@@ -24,7 +24,7 @@ COLORS = {
 }
 
 # Pie chart color mapping
-PIE_LABELS = ["High Value Recyclable", "Low Value", "Rejects", "Mixed"]
+PIE_LABELS = ["High Value", "Low Value", "Rejects", "Mixed"]
 PIE_COLORS = ['#4CAF50', '#2196F3', '#FFC107', '#F44336']  # Green, Blue, Yellow, Red
 PIE_COLOR_MAP = dict(zip(PIE_LABELS, PIE_COLORS))
 PIE_OTHER_COLOR = '#F44336'  # Red for Mixed
@@ -53,9 +53,9 @@ class Panel(QWidget):
         layout.setContentsMargins(10, 10, 10, 10)
         layout.setSpacing(10)
         
-        # Title label with improved styling
+        # Title label with Fredoka Medium font
         title_label = QLabel(title)
-        title_label.setFont(QFont('Segoe UI', 12, QFont.Bold))
+        title_label.setFont(QFont('Fredoka Medium', 12, QFont.Medium))
         title_label.setStyleSheet("""
             QLabel {
                 color: white;
@@ -125,11 +125,12 @@ class AnalyticsWidget(QWidget):
         
         # Time filter dropdown
         time_filter_label = QLabel("Time Range:")
-        time_filter_label.setStyleSheet("color: white; font-size: 11px; padding: 0; border: none;")
+        time_filter_label.setFont(QFont('Fredoka Medium', 11))
+        time_filter_label.setStyleSheet("color: white; padding: 0; border: none;")
         self.time_filter = QComboBox()
         self.time_filter.addItems(["Past Hour", "Past Day", "Past Week", "Past Month"])
         
-        # Style the dropdowns
+        # Style the dropdowns with Fredoka Medium
         dropdown_style = """
             QComboBox {
                 background-color: #111827;
@@ -137,6 +138,7 @@ class AnalyticsWidget(QWidget):
                 border: 1px solid #16324b;
                 border-radius: 5px;
                 padding: 1px 3px;
+                font-family: 'Fredoka Medium';
                 font-size: 12px;
             }
             QComboBox:hover {
@@ -155,14 +157,17 @@ class AnalyticsWidget(QWidget):
                 color: white;
                 border: 1px solid #16324b;
                 selection-background-color: #1e3a8a;
+                font-family: 'Fredoka Medium';
+                font-size: 12px;
             }
         """
         
         self.time_filter.setStyleSheet(dropdown_style)
         
-        # Add dropdown filters
+        # Add dropdown filters with Fredoka Medium
         type_filter_label = QLabel("Type:")
-        type_filter_label.setStyleSheet("color: white; font-size: 11px; padding: 0; border: none;")
+        type_filter_label.setFont(QFont('Fredoka Medium', 11))
+        type_filter_label.setStyleSheet("color: white; padding: 0; border: none;")
         self.type_filter = QComboBox()
         self.type_filter.addItem("All Types")
         self.type_filter.addItems([
@@ -171,7 +176,8 @@ class AnalyticsWidget(QWidget):
         ])
         
         classification_filter_label = QLabel("Classification:")
-        classification_filter_label.setStyleSheet("color: white; font-size: 11px; padding: 0; border: none;")
+        classification_filter_label.setFont(QFont('Fredoka Medium', 11))
+        classification_filter_label.setStyleSheet("color: white; padding: 0; border: none;")
         self.classification_filter = QComboBox()
         self.classification_filter.addItem("All Classifications")
         self.classification_filter.addItems([
@@ -222,22 +228,27 @@ class AnalyticsWidget(QWidget):
                 color: white;
                 gridline-color: #16324b;
                 border: 1px solid #16324b;
+                font-family: 'Fredoka Medium';
+                font-size: 12px;
             }
             QHeaderView::section {
                 background-color: #111827;
                 color: white;
                 padding: 5px;
                 border: 1px solid #16324b;
+                font-family: 'Fredoka Medium';
+                font-size: 11px;
+                font-weight: bold;
             }
             QTableWidget::item {
                 padding: 5px;
-                border-bottom: 1px solid #16324b;
+                border-bottom: 0px solid #16324b;
             }
         """)
         table_panel.content_layout.addWidget(self.table)
         
         # Pie Chart Panel
-        pie_panel = Panel("Distribution")  # Simplified title
+        pie_panel = Panel("Waste Distribution")  
         self.pie_chart = PieChartWidget()
         self.pie_chart.setMinimumSize(300, 300)
         self.pie_chart.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -248,7 +259,7 @@ class AnalyticsWidget(QWidget):
         top_layout.addWidget(pie_panel, 1)
         
         # Bar Chart Panel
-        bar_panel = Panel("Waste Types")
+        bar_panel = Panel("Waste Generation by Type")
         
         # Add bar chart with reduced size
         self.bar_chart = BarChartWidget()
@@ -343,7 +354,7 @@ class AnalyticsWidget(QWidget):
                 # Classification
                 item = QTableWidgetItem(str(row['classification']))
                 item.setTextAlignment(Qt.AlignCenter)
-                if row['classification'] == 'High Value Recyclable':
+                if row['classification'] == 'High Value':
                     item.setForeground(QColor(COLORS['accent']))
                 elif row['classification'] == 'Low Value':
                     item.setForeground(QColor(COLORS['warning']))

@@ -66,15 +66,16 @@ class MainView(QWidget):
         # Start/Stop button
         self.start_btn = QPushButton("START")
         self.start_btn.setFixedSize(120, 40)
-        self.start_btn.setFont(QFont('Segoe UI', 14, QFont.Bold))
+        self.start_btn.setFont(QFont('Fredoka Medium', 14, QFont.DemiBold))
         self.start_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4f46e5;
                 color: white;
                 border: none;
                 border-radius: 20px;
+                font-family: 'Fredoka Medium';
                 font-size: 16px;
-                font-weight: bold;
+                font-weight: 600;
             }
             QPushButton:hover {
                 background-color: #4338ca;
@@ -91,13 +92,18 @@ class MainView(QWidget):
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
         right_layout.setSpacing(15)
-        right_layout.setContentsMargins(20, 40, 20, 20)  # Increased top margin to 40
+        right_layout.setContentsMargins(20, 80, 20, 20)  # Increased top margin from 40 to 80
         
         # Detection result panels
         self.plastic_type_widget = DetectionResultWidget("WASTE TYPE:", "-")
         self.opacity_widget = DetectionResultWidget("OPACITY:", "-")
         self.contamination_widget = DetectionResultWidget("CONTAMINATION:", "0.00%")
         self.result_widget = DetectionResultWidget("RESULT:", "-")
+        
+        # Update font for all detection result widgets
+        for widget in [self.plastic_type_widget, self.opacity_widget, 
+                      self.contamination_widget, self.result_widget]:
+            widget.set_font('Fredoka Medium')
         
         right_layout.addWidget(self.plastic_type_widget)
         right_layout.addWidget(self.opacity_widget)
@@ -140,8 +146,8 @@ class MainView(QWidget):
             self.result_widget.update_value(self.last_detection['classification'])
 
         # Control servo based on classification
-        if self.last_detection['classification'] in ['High Value Recyclable', 'Low Value', 'Rejects']:
-            if self.last_detection['classification'] == 'High Value Recyclable':
+        if self.last_detection['classification'] in ['High Value', 'Low Value', 'Rejects']:
+            if self.last_detection['classification'] == 'High Value':
                 self.servo_controller.process_detection('high')
             elif self.last_detection['classification'] == 'Low Value':
                 self.servo_controller.process_detection('low')
@@ -158,8 +164,9 @@ class MainView(QWidget):
                         color: white;
                         border: none;
                         border-radius: 20px;
+                        font-family: 'Fredoka Medium';
                         font-size: 16px;
-                        font-weight: bold;
+                        font-weight: 600;
                     }
                     QPushButton:hover {
                         background-color: #b91c1c;
@@ -208,8 +215,9 @@ class MainView(QWidget):
                         color: white;
                         border: none;
                         border-radius: 20px;
+                        font-family: 'Fredoka Medium';
                         font-size: 16px;
-                        font-weight: bold;
+                        font-weight: 600;
                     }
                     QPushButton:hover {
                         background-color: #4338ca;
