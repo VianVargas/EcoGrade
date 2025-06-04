@@ -165,7 +165,7 @@ def detect_transparency(frame, mask, background=None, debug=True):
 def classify_output(waste_type, residue_score, transparency_level):
     if waste_type == 'Tin-Steel Can':
         if residue_score < 20:
-            return 'High Value Recyclable'
+            return 'High Value'
         else:
             return 'Low Value'
 
@@ -217,7 +217,7 @@ def classify_output(waste_type, residue_score, transparency_level):
 
     # Step 6: Classification thresholds
     if final_score >= 8.0:
-        return 'High Value Recyclable'
+        return 'High Value'
     elif final_score >= 4.0:
         return 'Low Value'
     else:
@@ -352,7 +352,7 @@ class VideoProcessor:
                 border_thickness = int(5 + 3 * np.sin(self.animation_time * 6))
                 
                 # Create border color based on classification
-                if self.last_classification == 'High Value Recyclable':
+                if self.last_classification == 'High Value':
                     border_color = (0, 255, 0)  # Green
                 elif self.last_classification == 'Low Value':
                     border_color = (0, 165, 255)  # Orange
