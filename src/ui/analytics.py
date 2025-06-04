@@ -248,7 +248,7 @@ class AnalyticsWidget(QWidget):
         table_panel.content_layout.addWidget(self.table)
         
         # Pie Chart Panel
-        pie_panel = Panel("Distribution")  # Simplified title
+        pie_panel = Panel("Waste Distribution")  
         self.pie_chart = PieChartWidget()
         self.pie_chart.setMinimumSize(300, 300)
         self.pie_chart.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -259,7 +259,7 @@ class AnalyticsWidget(QWidget):
         top_layout.addWidget(pie_panel, 1)
         
         # Bar Chart Panel
-        bar_panel = Panel("Waste Types")
+        bar_panel = Panel("Waste Generation by Type")
         
         # Add bar chart with reduced size
         self.bar_chart = BarChartWidget()
