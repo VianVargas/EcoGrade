@@ -13,7 +13,7 @@ class LiquidButton(QPushButton):
         self.anim.setDuration(600)
         self.anim.setEasingCurve(QEasingCurve.InOutCubic)
         self.setCursor(Qt.PointingHandCursor)
-        self.setStyleSheet("border: none; font-family: 'Segoe UI'; font-size: 24px; font-weight: bold; color: white;")
+        self.setStyleSheet("border: none; font-family: 'Fredoka Medium'; font-size: 24px; font-weight: bold; color: white;")
         self.setFixedSize(200, 60)
         self.flow_timer = QTimer(self)
         self.flow_timer.timeout.connect(self.updateFlow)
@@ -159,7 +159,7 @@ class FrontPageWidget(QWidget):
         row_layout = QHBoxLayout()
         row_layout.setAlignment(Qt.AlignCenter)
         row_layout.setSpacing(40)
-
+    
         # Logo (LOGO.png)
         logo_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../assets/LOGO.png'))
         logo_label = QLabel()
