@@ -137,33 +137,33 @@ class AboutView(QWidget):
         title = QLabel("<span style='color: #00bf63;'>ECO</span><span style='color: #004aad;'>GRADE</span>")
         title.setTextFormat(Qt.RichText)
         title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet("font-family: 'Fredoka Medium'; font-size: 56px; font-weight: bold; letter-spacing: 2px;")
+        title.setStyleSheet("font-family: 'Fredoka'; font-size: 56px; font-weight: bold; letter-spacing: 2px;")
         inner_layout.addWidget(title)
 
         # Tagline (using Fredoka Medium)
         tagline = QLabel("LEVERAGING CONVOLUTIONAL NEURAL NETWORKS AND MULTI-DECISION ANALYSIS FOR ADVANCED REAL-TIME DETECTION AND QUALITY ASSESSMENT OF NON-BIODEGRADABLE WASTE MATERIALS")
         tagline.setWordWrap(True)
         tagline.setAlignment(Qt.AlignCenter)
-        tagline.setStyleSheet("color: white; font-family: 'Fredoka Medium'; font-size: 18px; font-weight: 600; margin-bottom: 8px;")
+        tagline.setStyleSheet("color: white; font-family: 'Fredoka'; font-size: 18px; font-weight: 600; margin-bottom: 8px;")
         inner_layout.addWidget(tagline)
 
         # Description (using Fredoka Medium)
         desc = QLabel(
-            "This study presents EcoGrade, an innovative system that enhances the assessment and classification of non-biodegradable waste through the integration of YOLOv11-based Convolutional Neural Networks (CNN) for real-time object detection and Multi-Criteria Decision Analysis (MCDA) for data-driven quality evaluation. Focusing on plastic types such as Polyethylene Terephthalate (PET), High-Density Polyethylene (HDPE), Low-Density Polyethylene (LDPE), and Polypropylene (PP), as well as Tin/Steel Cans, the system detects and analyzes waste materials based on material type, opacity, and contamination levels to determine their value. The YOLOv11s model was trained on a custom dataset to ensure precise classification, while the MCDA framework assigned weighted scores to evaluate material quality and guide decision-making. EcoGrade was tested under real-world conditions, specifically in partnership with the City Environmental Management Office (CEMO) of Marikina City, and its performance was benchmarked against ISO 25010 software quality standards, particularly in terms of functionality, reliability, and efficiency. Results demonstrated that the system achieved high detection accuracy and significantly improved classification performance compared to conventional models, offering a scalable, intelligent solution that supports sustainable waste management and promotes circular economy practices."
+            "This study presents EcoGrade, an innovative system that enhances the assessment and classification of non-biodegradable waste through the integration of YOLOv11-based Convolutional Neural Networks (CNN) for real-time object detection and Multi-Criteria Decision Analysis (MCDA) for data-driven quality evaluation. Focusing on plastic types such as Polyethylene Terephthalate (PET), High-Density Polyethylene (HDPE), Low-Density Polyethylene (LDPE), and Polypropylene (PP), as well as Tin/Steel Cans, the system detects and analyzes waste materials based on material type, opacity, and contamination levels to determine their value. The YOLOv11n model was trained on a custom dataset to ensure precise classification, while the MCDA framework assigned weighted scores to evaluate material quality and guide decision-making. EcoGrade was tested under real-world conditions, specifically in partnership with the City Environmental Management Office (CEMO) of Marikina City, and its performance was benchmarked against ISO 25010 software quality standards, particularly in terms of functionality, reliability, and efficiency. Results demonstrated that the system achieved high detection accuracy and significantly improved classification performance compared to conventional models, offering a scalable, intelligent solution that supports sustainable waste management and promotes circular economy practices."
         )
         desc.setWordWrap(True)
         desc.setAlignment(Qt.AlignCenter)
-        desc.setStyleSheet("color: white; font-family: 'Fredoka Medium'; font-size: 14px; line-height: 1.6; margin-bottom: 16px;")
+        desc.setStyleSheet("color: white; font-family: 'Fredoka'; font-size: 14px; line-height: 1.6; margin-bottom: 16px;")
         inner_layout.addWidget(desc)
 
         # Team Members Title (renamed to QuadPals, using Fredoka Medium) (split color QUADPALS)
         team_title = QLabel("<span style='color: #00bf63;'>QUAD</span><span style='color: #004aad;'>PALS</span>")
         team_title.setTextFormat(Qt.RichText)
         team_title.setAlignment(Qt.AlignCenter)
-        team_title.setStyleSheet("font-family: 'Fredoka Medium'; font-size: 32px; font-weight: bold; margin-top: 16px; margin-bottom: 8px;")
+        team_title.setStyleSheet("font-family: 'Fredoka'; font-size: 32px; font-weight: bold; margin-top: 16px; margin-bottom: 8px;")
         inner_layout.addWidget(team_title)
 
-        # Team Members List (centered, no bullets, names in Fredoka Medium, roles in Segoe UI)
+        # Team Members List (centered, no bullets, names in Fredoka Medium, roles in Fredoka Medium)
         team_members = [
             ("Villas, Rakee D.", "Fullstack Developer"),
             ("Vargas, Vian Andrei C.", "Hardware Engineer, Documentation"),
@@ -172,16 +172,16 @@ class AboutView(QWidget):
             ("Altiche, Adriane", "Frontend Developer, Documentation"),
         ]
         for name, role in team_members:
-            member_label = QLabel(f"<span style='font-size:16px; color:white; font-family:Fredoka Medium; font-weight:600;'>{name}</span><br><span style='font-size:13px; color:#bdbdbd; font-family:Segoe UI;'>{role}</span>")
+            member_label = QLabel(f"<span style='font-size:16px; color:white; font-family:Fredoka; font-weight:600;'>{name}</span><br><span style='font-size:13px; color:#bdbdbd; font-family:Fredoka;'>{role}</span>")
             member_label.setTextFormat(Qt.RichText)
             member_label.setAlignment(Qt.AlignCenter)
             member_label.setStyleSheet("margin-bottom: 10px;")
             inner_layout.addWidget(member_label)
 
-        # Copyright (using Segoe UI)
+        # Copyright (using Fredoka Medium)
         copyright = QLabel("© 2025 EcoGrade Project. All rights reserved.")
         copyright.setAlignment(Qt.AlignCenter)
-        copyright.setStyleSheet("color: #bdbdbd; font-family: 'Segoe UI'; font-size: 12px; margin-top: 24px;")
+        copyright.setStyleSheet("color: #bdbdbd; font-family: 'Fredoka'; font-size: 12px; margin-top: 24px;")
         inner_layout.addWidget(copyright)
 
         scroll.setWidget(inner_widget)

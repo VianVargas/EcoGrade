@@ -66,15 +66,15 @@ class MainView(QWidget):
         # Start/Stop button
         self.start_btn = QPushButton("START")
         self.start_btn.setFixedSize(120, 40)
-        self.start_btn.setFont(QFont('Fredoka Medium', 14, QFont.DemiBold))
+        self.start_btn.setFont(QFont('Fredoka', 18, QFont.DemiBold))
         self.start_btn.setStyleSheet("""
             QPushButton {
                 background-color: #4f46e5;
                 color: white;
                 border: none;
                 border-radius: 20px;
-                font-family: 'Fredoka Medium';
-                font-size: 16px;
+                font-family: 'Fredoka';
+                font-size: 20px;
                 font-weight: 600;
             }
             QPushButton:hover {
@@ -100,10 +100,12 @@ class MainView(QWidget):
         self.contamination_widget = DetectionResultWidget("CONTAMINATION:", "0.00%")
         self.result_widget = DetectionResultWidget("RESULT:", "-")
         
-        # Update font for all detection result widgets
+        # Update font for all detection result widgets with larger size
         for widget in [self.plastic_type_widget, self.opacity_widget, 
                       self.contamination_widget, self.result_widget]:
-            widget.set_font('Fredoka Medium')
+            widget.set_font('Fredoka')
+            widget.title_label.setFont(QFont('Fredoka', 16, QFont.DemiBold))
+            widget.value_label.setFont(QFont('Fredoka', 18, QFont.DemiBold))
         
         right_layout.addWidget(self.plastic_type_widget)
         right_layout.addWidget(self.opacity_widget)
@@ -118,6 +120,11 @@ class MainView(QWidget):
     
     def update_detection_results(self, result_data):
         """Update the detection result widgets with new data"""
+        # Add a 1-second delay before updating results
+        QTimer.singleShot(1000, lambda: self._update_results(result_data))
+
+    def _update_results(self, result_data):
+        """Internal method to update results after delay"""
         classification = result_data.get('classification', '-')
         waste_type = result_data.get('waste_type', '-')
         transparency = result_data.get('transparency', '-')
@@ -164,8 +171,8 @@ class MainView(QWidget):
                         color: white;
                         border: none;
                         border-radius: 20px;
-                        font-family: 'Fredoka Medium';
-                        font-size: 16px;
+                        font-family: 'Fredoka';
+                        font-size: 18px;
                         font-weight: 600;
                     }
                     QPushButton:hover {
@@ -215,8 +222,8 @@ class MainView(QWidget):
                         color: white;
                         border: none;
                         border-radius: 20px;
-                        font-family: 'Fredoka Medium';
-                        font-size: 16px;
+                        font-family: 'Fredoka';
+                        font-size: 18px;
                         font-weight: 600;
                     }
                     QPushButton:hover {

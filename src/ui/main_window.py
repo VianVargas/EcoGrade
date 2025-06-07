@@ -16,7 +16,15 @@ class MainWindow(QMainWindow):
     def initUI(self):
         self.setFixedSize(1280, 720)  # Set the window size
         self.center()         
-        self.setStyleSheet("QMainWindow { background-color: #111827; }")
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #111827;
+                font-family: 'Fredoka';
+            }
+            QWidget {
+                font-family: 'Fredoka';
+            }
+        """)
         self.setWindowTitle("ECOGRADE")
         
         # Create central widget
@@ -33,6 +41,12 @@ class MainWindow(QMainWindow):
         
         # Create main content area
         self.content_stack = QStackedWidget()
+        self.content_stack.setStyleSheet("""
+            QStackedWidget {
+                background-color: #111827;
+                font-family: 'Fredoka';
+            }
+        """)
         self.create_front_page()
         self.create_main_view()
         self.create_analytics_view()
@@ -69,7 +83,7 @@ class MainWindow(QMainWindow):
         front_btn.clicked.connect(lambda: self.switch_view("front"))
         
         # Navigation buttons
-        home_btn = SidebarButton("src/ui/assets/home.svg")
+        home_btn = SidebarButton("src/ui/assets/video.svg")
         home_btn.clicked.connect(lambda: self.switch_view("main"))
         
         analytics_btn = SidebarButton("src/ui/assets/bar-chart.svg")

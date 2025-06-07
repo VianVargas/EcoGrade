@@ -11,12 +11,12 @@ class DetectionResultWidget(RoundedWidget):
         
         # Title label
         self.title_label = QLabel(title)
-        self.title_label.setFont(QFont('Fredoka Medium', 14, QFont.DemiBold))
+        self.title_label.setFont(QFont('Fredoka', 16, QFont.DemiBold))
         self.title_label.setStyleSheet("""
             QLabel {
                 color: white;
-                font-family: 'Fredoka Medium';
-                font-size: 14px;
+                font-family: 'Fredoka';
+                font-size: 16px;
                 font-weight: 600;
                 background-color: transparent;
                 border: none;
@@ -38,12 +38,12 @@ class DetectionResultWidget(RoundedWidget):
         # Value layout
         value_layout = QVBoxLayout(self.value_widget)
         self.value_label = QLabel(value)
-        self.value_label.setFont(QFont('Fredoka Medium', 16, QFont.DemiBold))
+        self.value_label.setFont(QFont('Fredoka', 18, QFont.DemiBold))
         self.value_label.setStyleSheet("""
             QLabel {
                 color: white;
-                font-family: 'Fredoka Medium';
-                font-size: 16px;
+                font-family: 'Fredoka';
+                font-size: 18px;
                 font-weight: 600;
                 background-color: transparent;
                 border: none;
@@ -63,14 +63,14 @@ class DetectionResultWidget(RoundedWidget):
     
     def set_font(self, font_family):
         """Update the font for both title and value labels"""
-        self.title_label.setFont(QFont(font_family, 14, QFont.DemiBold))
-        self.value_label.setFont(QFont(font_family, 16, QFont.DemiBold))
+        self.title_label.setFont(QFont(font_family, 16, QFont.DemiBold))
+        self.value_label.setFont(QFont(font_family, 18, QFont.DemiBold))
         # Update stylesheets to include font family
         self.title_label.setStyleSheet(f"""
             QLabel {{
                 color: white;
                 font-family: '{font_family}';
-                font-size: 14px;
+                font-size: 16px;
                 font-weight: 600;
                 background-color: transparent;
                 border: none;
@@ -80,7 +80,7 @@ class DetectionResultWidget(RoundedWidget):
             QLabel {{
                 color: white;
                 font-family: '{font_family}';
-                font-size: 16px;
+                font-size: 18px;
                 font-weight: 600;
                 background-color: transparent;
                 border: none;

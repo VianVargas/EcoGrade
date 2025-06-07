@@ -1,5 +1,5 @@
-from PyQt5.QtWidgets import QPushButton
-from PyQt5.QtGui import QIcon, QPalette, QPainter, QLinearGradient, QColor, QPen
+from PyQt5.QtWidgets import QPushButton, QHBoxLayout, QLabel
+from PyQt5.QtGui import QIcon, QPalette, QPainter, QLinearGradient, QColor, QPen, QFont
 from PyQt5.QtCore import QSize, Qt, QTimer
 import os
 import math
@@ -17,7 +17,7 @@ class SidebarButton(QPushButton):
         self.icon = None
         if (icon_path.lower().endswith('.svg')) and os.path.exists(icon_path):
             self.icon = QIcon(icon_path)
-            self.setIconSize(QSize(25, 25))
+            self.setIconSize(QSize(18, 18))
         self.setText("")
         self.setStyleSheet("")  # Remove default stylesheet for custom painting
 
@@ -69,3 +69,56 @@ class SidebarButton(QPushButton):
             painter.setPen(QColor("white"))
             painter.setFont(self.font())
             painter.drawText(rect, Qt.AlignCenter, "📄") 
+
+    def init_ui(self):
+        # Main layout
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(10, 5, 10, 5)
+        layout.setSpacing(10)
+
+        # Icon label
+        self.icon_label = QLabel()
+        self.icon_label.setFixedSize(20, 20)  # Reduced from 25x25 to 23x23
+        self.icon_label.setStyleSheet("""
+            QLabel {
+                background-color: transparent;
+                border: none;
+                padding: 0;
+            }
+        """)
+
+        # Text label
+        self.text_label = QLabel(self.text)
+        self.text_label.setFont(QFont('Fredoka', 11))
+        self.text_label.setStyleSheet("""
+            QLabel {
+                color: white;
+                background-color: transparent;
+                border: none;
+                padding: 0;
+                font-family: 'Fredoka';
+            }
+        """)
+
+        # Add widgets to layout
+        layout.addWidget(self.icon_label)
+        layout.addWidget(self.text_label)
+        layout.addStretch()
+
+        # Set button style
+        self.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border: none;
+                text-align: left;
+                padding: 5px;
+                border-radius: 5px;
+                font-family: 'Fredoka';
+            }
+            QPushButton:hover {
+                background-color: #1e3a8a;
+            }
+            QPushButton:checked {
+                background-color: #1e3a8a;
+            }
+        """) 

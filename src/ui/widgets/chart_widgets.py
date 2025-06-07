@@ -67,13 +67,16 @@ class PieChartWidget(FigureCanvas):
                 handles=legend_handles,
                 labels=legend_labels,
                 loc='upper left',
-                bbox_to_anchor=(-0.25, 0.9),
+                bbox_to_anchor=(-0.25, 1.0),
                 frameon=False,
-                fontsize=8
+                fontsize=7
             )
         for text in self.legend.get_texts():
                 text.set_color('white')
-        self.fig.tight_layout()
+        
+        # Set fixed aspect ratio and adjust layout
+        self.ax.set_aspect('equal')
+        self.fig.subplots_adjust(left=0.2, right=0.9, top=0.9, bottom=0.1)
         self.draw()
 
     def update_chart(self):
@@ -114,7 +117,7 @@ class BarChartWidget(FigureCanvas):
         self.setParent(parent)
         self.ax = self.fig.add_subplot(111, facecolor='#111827')
         self.time_filter = 'hour'  # Default to hour
-        self.bar_width = 0.5  # Default bar width
+        self.bar_width = 0.4  # Default bar width
         self.update_chart()
 
     def set_time_filter(self, time_filter):
@@ -138,18 +141,19 @@ class BarChartWidget(FigureCanvas):
             self.draw()
             return
             
-        # Define colors for each waste type
-        waste_type_colors = {
-            'PET Bottle': '#10b981',      # Green
-            'HDPE Plastic': '#34d399',    # Light Green
-            'PP': '#f59e42',              # Orange
-            'LDPE': '#ab47bc',            # Purple
-            'Tin-Steel Can': '#bdbdbd',   # Gray
-            'UHT Box': '#ff7043',         # Deep Orange
+        # Bar chart color mapping for waste types
+        BAR_TYPE_COLORS = {
+            'PET Bottle': '#ff7043',  # Changed from #42a5f5 to a more distinct orange
+            'HDPE Plastic': '#66bb6a',  # Kept as is
+            'PP': '#ffa726',
+            'LDPE': '#ab47bc',
+            'Tin-Steel Can': '#bdbdbd',
+            'UHT Box': '#ff7043',
+            'Other': '#789262',
         }
         
         # Get colors for each waste type, default to gray if not found
-        colors = [waste_type_colors.get(wt, '#bdbdbd') for wt in items]
+        colors = [BAR_TYPE_COLORS.get(wt, '#bdbdbd') for wt in items]
         
         # Calculate bar positions based on number of items
         num_items = len(items)
@@ -175,13 +179,13 @@ class BarChartWidget(FigureCanvas):
         # Set x-axis ticks and labels
         if num_items == 1:
             self.ax.set_xticks([0.5])
-            self.ax.set_xticklabels(items, rotation=45, ha='right', color='white', fontsize=9)
+            self.ax.set_xticklabels(items, rotation=45, ha='right', color='white', fontsize=8)
         else:
             self.ax.set_xticks(range(len(items)))
-            self.ax.set_xticklabels(items, rotation=45, ha='right', color='white', fontsize=9)
+            self.ax.set_xticklabels(items, rotation=45, ha='right', color='white', fontsize=8)
         
         # Style the ticks and labels
-        self.ax.tick_params(colors='white', labelsize=9)
+        self.ax.tick_params(colors='white', labelsize=8)
         for spine in self.ax.spines.values():
             spine.set_color('white')
             spine.set_linewidth(1)
@@ -191,7 +195,7 @@ class BarChartWidget(FigureCanvas):
             height = bar.get_height()
             self.ax.text(bar.get_x() + bar.get_width()/2., height,
                         f'{int(height)}',
-                        ha='center', va='bottom', color='white', fontsize=9)
+                        ha='center', va='bottom', color='white', fontsize=8)
         
         # Add border
         for spine in self.ax.spines.values():

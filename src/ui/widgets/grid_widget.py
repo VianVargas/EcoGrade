@@ -14,7 +14,7 @@ class GridWidget(RoundedWidget):
         filter_label.setStyleSheet("""
             QLabel {
                 color: white;
-                font-size: 14px;
+                font-size: 15px;
                 font-weight: bold;
                 background-color: transparent;
                 border: none;

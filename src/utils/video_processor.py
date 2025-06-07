@@ -164,7 +164,7 @@ def detect_transparency(frame, mask, background=None, debug=True):
 
 def classify_output(waste_type, residue_score, transparency_level):
     if waste_type == 'Tin-Steel Can':
-        if residue_score < 20:
+        if residue_score < 25:
             return 'High Value'
         else:
             return 'Low Value'
@@ -176,13 +176,13 @@ def classify_output(waste_type, residue_score, transparency_level):
         'HDPE Plastic, Squeeze-Tube': 8,
         'HDPE Plastic': 9,
         'PP': 5,
-        'LDPE': 3,
-        'UHT Box': 4  # Mixed multilayer composite (cartons)
+        'LDPE': 1,
+        'UHT Box': 2  
     }
 
     opacity_scores = {
         'Clear': 10,
-        'Semi-Opaque': 7,
+        'Semi-Opaque': 6,
         'Opaque': 3
     }
 
@@ -201,9 +201,9 @@ def classify_output(waste_type, residue_score, transparency_level):
     op_score = opacity_scores.get(transparency_level, 1)
 
     # Step 4: Weights
-    w_pt = 0.40
-    w_res = 0.35
-    w_op = 0.25
+    w_pt = 0.50
+    w_res = 0.30
+    w_op = 0.20
 
     # Step 5: Final weighted score
     final_score = (pt_score * w_pt) + (residue_clean_score * w_res) + (op_score * w_op)
@@ -295,7 +295,7 @@ class VideoProcessor:
             except Exception as e:
                 print(f"Warning: Could not set all camera properties: {str(e)}")
             try:
-                self.model = YOLO("best.pt")
+                self.model = YOLO("EcoGrade_v11n_SGD.pt")
                 self.model.to('cuda' if torch.cuda.is_available() else 'cpu')
                 print("Model loaded successfully")
             except Exception as e:

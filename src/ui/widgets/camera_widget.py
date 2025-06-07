@@ -33,7 +33,7 @@ class CameraWidget(QLabel):
             }
         """)
         self.setAlignment(Qt.AlignCenter)
-        self.setFont(QFont('Fredoka SemiBold', 12, QFont.Bold))
+        self.setFont(QFont('Fredoka', 14, QFont.Bold))
         self.setText(f"{view_type.replace('_', ' ').title()} View")
 
         
