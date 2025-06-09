@@ -57,7 +57,7 @@ class StartPage(QWidget):
         start_btn.setStyleSheet("""
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-                    stop:0 #10b981, stop:1 #1e40af);
+                    stop:0 #10b981, stop:1 #16324b);
                 color: white;
                 font-family: 'Intro Rust';
                 font-size: 24px;

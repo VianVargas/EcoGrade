@@ -14,7 +14,7 @@ class FrontPageWidget(QWidget):
         self._wobble_phase = 0.0
         
         # Rain effect: initialize raindrops
-        self.num_raindrops = 40
+        self.num_raindrops = 50
         self.raindrops = self._init_raindrops()
         
         # Initialize UI first
@@ -101,7 +101,7 @@ class FrontPageWidget(QWidget):
         """Add the ECOGRADE title"""
         self.title = QLabel()
         # Use Fredoka with SemiBold weight instead of Medium
-        title_font = QFont("Fredoka", 106)
+        title_font = QFont("Fredoka", 96)
         title_font.setWeight(QFont.DemiBold)
         self.title.setFont(title_font)
         self.title.setStyleSheet("""
@@ -130,7 +130,7 @@ class FrontPageWidget(QWidget):
                 'x': random.randint(0, width),
                 'y': random.randint(-height, 0),
                 'length': random.randint(10, 24),
-                'speed': random.uniform(1.5, 3.5),  # Slower speed
+                'speed': random.uniform(1.5, 3.0),  # Slower speed
                 'thickness': random.uniform(1.2, 2.2),
                 'alpha': random.randint(80, 160)
             }

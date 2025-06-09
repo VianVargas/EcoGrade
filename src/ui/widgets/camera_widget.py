@@ -33,7 +33,7 @@ class CameraWidget(QLabel):
             }
         """)
         self.setAlignment(Qt.AlignCenter)
-        self.setFont(QFont('Fredoka', 14, QFont.Bold))
+        self.setFont(QFont('Fredoka', 12, QFont.Bold))
         self.setText(f"{view_type.replace('_', ' ').title()} View")
 
         
@@ -60,9 +60,15 @@ class CameraWidget(QLabel):
             return  # Prevent double start
         try:
             if self.video_processor:
+                # Clear text and frame immediately
+                self.clear()
+                self.setText("")
+                self.update()
+                
+                # Start camera
                 self.update_timer.start(33)  # ~30 FPS
                 self.camera_started = True
-                self.setText("")
+                
                 # Enable glow effect when camera starts
                 self.glow_effect.setEnabled(True)
                 # No need to call start_camera on video_processor as it's already started
@@ -72,16 +78,33 @@ class CameraWidget(QLabel):
             self.error_message = str(e)
             print(f"Error starting camera widget: {self.error_message}")
             self.setText(f"Camera Error\n{self.error_message}")
+            # Reset camera state on error
+            self.camera_started = False
+            self.update_timer.stop()
     
     def update_frame(self):
+        if not self.camera_started:
+            self.setStyleSheet("""
+                QLabel {
+                    color: #3ac194;
+                    background-color: black;
+                    border-radius: 10px;
+                    border: 1px solid #3ac194;
+                }
+                QLabel:hover {
+                    border: 2px solid #14e7a1;
+                }
+            """)
+            self.setText(f"{self.view_type.replace('_', ' ').title()} View")
+            self.update()
+            return
+
         if self.video_processor and self.video_processor.latest_result is not None:
             result = self.video_processor.latest_result
             frames = result['frames']
             # Select the appropriate frame based on view type
             if self.view_type == "object_detection":
                 frame = frames['model']
-            elif self.view_type == "opacity_scan":
-                frame = frames['opacity']
             elif self.view_type == "residue_scan":
                 frame = frames['residue']
             elif self.view_type == "mask":
@@ -97,7 +120,33 @@ class CameraWidget(QLabel):
                 self.result_updated.emit(result['data'])
             else:
                 print(f"Warning: Empty frame received for {self.view_type}")
+                self.setStyleSheet("""
+                    QLabel {
+                        color: #3ac194;
+                        background-color: black;
+                        border-radius: 10px;
+                        border: 1px solid #3ac194;
+                    }
+                    QLabel:hover {
+                        border: 2px solid #14e7a1;
+                    }
+                """)
                 self.setText(f"{self.view_type.replace('_', ' ').title()} View")
+                self.update()
+        else:
+            self.setStyleSheet("""
+                QLabel {
+                    color: #3ac194;
+                    background-color: black;
+                    border-radius: 10px;
+                    border: 1px solid #3ac194;
+                }
+                QLabel:hover {
+                    border: 2px solid #14e7a1;
+                }
+            """)
+            self.setText(f"{self.view_type.replace('_', ' ').title()} View")
+            self.update()
     
     def resizeEvent(self, event):
         super().resizeEvent(event)
@@ -111,9 +160,24 @@ class CameraWidget(QLabel):
     def stop_camera(self):
         self.update_timer.stop()
         self.camera_started = False
+        # Force text to be visible
+        self.setStyleSheet("""
+            QLabel {
+                color: #3ac194;
+                background-color: black;
+                border-radius: 10px;
+                border: 1px solid #3ac194;
+            }
+            QLabel:hover {
+                border: 2px solid #14e7a1;
+            }
+        """)
+        # Clear any displayed frame
+        self.clear()
+        # Set text after clearing
         self.setText(f"{self.view_type.replace('_', ' ').title()} View")
         # Disable glow effect when camera stops
         self.glow_effect.setEnabled(False)
-        # Clear any displayed frame
-        self.clear()
+        # Force update
+        self.update()
         # No need to call stop_camera on video_processor as it's managed by the main view 

@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget, QDesktopWidget, QMessageBox
+from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget, QDesktopWidget, QMessageBox, QApplication
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 from .views.front_page import FrontPageWidget
@@ -6,6 +6,8 @@ from .views.main_view import MainView
 from .analytics import AnalyticsWidget
 from .widgets.sidebar_button import SidebarButton
 from .views.about_view import AboutView
+import sys
+import logging
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -79,28 +81,29 @@ class MainWindow(QMainWindow):
         sidebar_layout.setContentsMargins(10, 20, 10, 20)
         
         # Back to front page button
-        front_btn = SidebarButton("src/ui/assets/corner-up-left.svg")
-        front_btn.clicked.connect(lambda: self.switch_view("front"))
+        self.front_btn = SidebarButton("src/ui/assets/corner-up-left.svg")
+        self.front_btn.clicked.connect(lambda: self.switch_view("front"))
         
         # Navigation buttons
-        home_btn = SidebarButton("src/ui/assets/video.svg")
-        home_btn.clicked.connect(lambda: self.switch_view("main"))
+        self.home_btn = SidebarButton("src/ui/assets/video.svg")
+        self.home_btn.clicked.connect(lambda: self.switch_view("main"))
         
-        analytics_btn = SidebarButton("src/ui/assets/bar-chart.svg")
-        analytics_btn.clicked.connect(lambda: self.switch_view("analytics"))
+        self.analytics_btn = SidebarButton("src/ui/assets/bar-chart.svg")
+        self.analytics_btn.clicked.connect(lambda: self.switch_view("analytics"))
         
-        info_btn = SidebarButton("src/ui/assets/info.svg")
-        info_btn.clicked.connect(lambda: self.switch_view("about"))
-        power_btn = SidebarButton("src/ui/assets/power.svg")
-        power_btn.clicked.connect(self.close)
+        self.info_btn = SidebarButton("src/ui/assets/info.svg")
+        self.info_btn.clicked.connect(lambda: self.switch_view("about"))
         
-        sidebar_layout.addWidget(front_btn)
+        self.power_btn = SidebarButton("src/ui/assets/power.svg")
+        self.power_btn.clicked.connect(self.close)
+        
+        sidebar_layout.addWidget(self.front_btn)
         sidebar_layout.addSpacing(20)
-        sidebar_layout.addWidget(home_btn)
-        sidebar_layout.addWidget(analytics_btn)
+        sidebar_layout.addWidget(self.home_btn)
+        sidebar_layout.addWidget(self.analytics_btn)
         sidebar_layout.addStretch()
-        sidebar_layout.addWidget(info_btn)
-        sidebar_layout.addWidget(power_btn)
+        sidebar_layout.addWidget(self.info_btn)
+        sidebar_layout.addWidget(self.power_btn)
         
         return sidebar
               
@@ -111,6 +114,10 @@ class MainWindow(QMainWindow):
     def show_front_page(self):
         self.sidebar.hide()
         self.content_stack.setCurrentIndex(0)
+        self.front_btn.setChecked(True)
+        self.home_btn.setChecked(False)
+        self.analytics_btn.setChecked(False)
+        self.info_btn.setChecked(False)
         
     def show_main_content(self):
         self.sidebar.show()
@@ -128,19 +135,41 @@ class MainWindow(QMainWindow):
         self.content_stack.addWidget(self.about_view)
     
     def switch_view(self, view_name):
+        # Uncheck all buttons first
+        self.front_btn.setChecked(False)
+        self.home_btn.setChecked(False)
+        self.analytics_btn.setChecked(False)
+        self.info_btn.setChecked(False)
+        
         if view_name == "front":
             self.content_stack.setCurrentIndex(0)
             self.sidebar.hide()
+            self.front_btn.setChecked(True)
         elif view_name == "main":
             self.content_stack.setCurrentIndex(1)
             self.sidebar.show()
+            self.home_btn.setChecked(True)
         elif view_name == "analytics":
             self.content_stack.setCurrentIndex(2)
             self.sidebar.show()
+            self.analytics_btn.setChecked(True)
             if hasattr(self, 'analytics_view'):
                 self.analytics_view.update_data()
         elif view_name == "about":
             self.content_stack.setCurrentIndex(3)
             self.sidebar.show()
+            self.info_btn.setChecked(True)
         self.current_view = view_name 
+
+    def closeEvent(self, event):
+        """Handle window close event"""
+        # The MainView's closeEvent will handle camera cleanup
+        self.main_view.closeEvent(event)
+        super().closeEvent(event)
+
+def main():
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec_())
 

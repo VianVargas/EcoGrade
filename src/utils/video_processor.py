@@ -52,176 +52,142 @@ def calculate_residue_score(residue_mask, frame_area):
     residue_percentage = (residue_pixels / frame_area) * 100
     return residue_percentage
 
-def detect_transparency(frame, mask, background=None, debug=True):
-    if mask is None or np.count_nonzero(mask) < 50:
-        if debug: print("[Transparency/Opacity] Skipped: Invalid or too small mask")
-        return frame, '-'
+def detect_transparency(frame, bbox):
+    try:
+        # Extract object and background regions
+        x, y, w, h = bbox
+        object_region = frame[y:y+h, x:x+w]
+        background_region = frame[max(0, y-10):y, x:x+w]
 
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        # Convert to HSV
+        object_hsv = cv2.cvtColor(object_region, cv2.COLOR_BGR2HSV)
+        background_hsv = cv2.cvtColor(background_region, cv2.COLOR_BGR2HSV)
 
-    masked_gray = cv2.bitwise_and(gray, gray, mask=mask)
-    masked_hsv = cv2.bitwise_and(hsv, hsv, mask=mask)
+        # Calculate mean HSV values
+        object_mean = cv2.mean(object_hsv)[:3]
+        background_mean = cv2.mean(background_hsv)[:3]
 
-    gray_pixels = masked_gray[mask > 0]
-    sat_pixels = masked_hsv[..., 1][mask > 0]
-    val_pixels = masked_hsv[..., 2][mask > 0]
+        # Calculate differences
+        color_intensity = object_mean[1]  # Saturation
+        saturation_diff = abs(object_mean[1] - background_mean[1])
+        value_diff = abs(object_mean[2] - background_mean[2])
 
-    mean_brightness = np.mean(gray_pixels)
-    val_mean = np.mean(val_pixels)
-    val_std = np.std(val_pixels)
-    sat_mean = np.mean(sat_pixels)
+        # Determine if background is dark
+        is_dark_bg = background_mean[2] < 50
 
-    # Whiteness penalty (white opaque plastics)
-    is_bright = mean_brightness > 180
-    is_low_saturation = sat_mean < 40
-    is_val_inconsistent = val_std > 30
+        # Debug output
+        print("\n=== Opacity Detection Debug ===")
+        print(f"Color Intensity: {color_intensity:.2f}")
+        print(f"Saturation Difference: {saturation_diff:.2f}")
+        print(f"Value Difference: {value_diff:.2f}")
+        print(f"Object HSV Mean: H={object_mean[0]:.2f}, S={object_mean[1]:.2f}, V={object_mean[2]:.2f}")
+        print(f"Background HSV Mean: H={background_mean[0]:.2f}, S={background_mean[1]:.2f}, V={background_mean[2]:.2f}")
+        print(f"Dark Background: {is_dark_bg}")
 
-    whiteness_penalty = 0
-    if is_bright and is_low_saturation and is_val_inconsistent:
-        whiteness_penalty = 25
+        # Classify based on thresholds
+        if is_dark_bg:
+            if color_intensity > 45 and value_diff > 120:  # Increased thresholds
+                classification = 'Opaque'
+                reason = 'dark bg, high color, large diff'
+            elif color_intensity > 35 and value_diff > 60:  # Increased thresholds
+                classification = 'Semi-Opaque'
+                reason = 'dark bg, high color, medium diff'
+            else:
+                classification = 'Clear'
+                reason = 'dark bg, low color, small diff'
+        else:
+            if color_intensity > 45 and value_diff > 60:  # Increased thresholds
+                classification = 'Opaque'
+                reason = 'light bg, high color, large diff'
+            elif color_intensity > 35 and value_diff > 40:  # Increased thresholds
+                classification = 'Semi-Opaque'
+                reason = 'light bg, high color, medium diff'
+            else:
+                classification = 'Clear'
+                reason = 'light bg, low color, small diff'
 
-    # Normalized metrics
-    norm_brightness = mean_brightness / 255
-    norm_val_std = 1 - (val_std / 128)
-    norm_sat = 1 - (sat_mean / 255)
+        print(f"Classified as {classification} ({reason})")
+        return classification
 
-    opacity_score = (
-        norm_brightness * 0.15 +
-        norm_sat * 0.4 +
-        norm_val_std * 0.45
-    ) * 100
+    except Exception as e:
+        print(f"Error in detect_transparency: {str(e)}")
+        return 'Unknown'
 
-    opacity_score -= whiteness_penalty
-    opacity_score = max(opacity_score, 0)
-
+def classify_output(waste_type, residue_score, transparency):
+    # Initialize scores
+    waste_type_score = 0
+    cleanliness_score = 0
     transparency_score = 0
-    black_bg_correction = 0
 
-    if background is not None:
-        # Check if background is mostly black in mask region
-        bg_gray = cv2.cvtColor(background, cv2.COLOR_BGR2GRAY)
-        bg_pixels = bg_gray[mask > 0]
-        mean_bg_brightness = np.mean(bg_pixels)
+    # Score waste type with weighted values
+    if waste_type == 'PET Bottle':
+        waste_type_score = 10  # Highest base score
+    elif waste_type == 'HDPE Plastic':
+        waste_type_score = 9   # High base score
+    elif waste_type == 'LDPE':
+        waste_type_score = 5   # Medium-high base score
+    elif waste_type == 'PP':
+        waste_type_score = 6   # Medium base score
+    elif waste_type == 'Tin-Steel Can':
+        waste_type_score = 10   # High base score for metal
+    elif waste_type == 'Mixed Trash':
+        waste_type_score = 3   # Low base score for mixed waste
 
-        if mean_bg_brightness < 30:
-            # Black background detected
-            black_bg_correction = 20  # adjust as needed
-
-        hsv_bg = cv2.cvtColor(background, cv2.COLOR_BGR2HSV)
-        bg_hue = hsv_bg[..., 0][mask > 0].astype(np.float32)
-        bg_val = hsv_bg[..., 2][mask > 0].astype(np.float32)
-        frame_hue = masked_hsv[..., 0][mask > 0].astype(np.float32)
-        frame_val = val_pixels.astype(np.float32)
-
-        hue_diff = np.minimum(np.abs(frame_hue - bg_hue), 180 - np.abs(frame_hue - bg_hue))
-        hue_similarity = 100 - np.mean(hue_diff) / 90 * 100
-        val_diff = np.abs(frame_val - bg_val)
-        val_similarity = 100 - np.mean(val_diff) / 255 * 100
-
-        transparency_score = 0.4 * hue_similarity + 0.6 * val_similarity
-
-    # Blend scores with black bg correction
-    final_score = 0.5 * opacity_score + 0.5 * transparency_score + black_bg_correction
-    final_score = min(final_score, 100)  # cap max at 100
-
-    if debug:
-        print(f"[Opacity] Bright: {mean_brightness:.1f}, Sat: {sat_mean:.1f}, Val Std: {val_std:.1f}")
-        print(f"[Whiteness Penalty]: {whiteness_penalty}")
-        if background is not None:
-            print(f"[BG Brightness]: {mean_bg_brightness:.1f}, Black BG Corr: {black_bg_correction}")
-            print(f"[Transparency Score]: {transparency_score:.1f}")
-        else:
-            print("[Transparency] Skipped")
-        print(f"[Final Score]: {final_score:.1f}")
-
-    # Adjusted thresholds for black background scenario
-    clear_threshold = 60
-    semi_opaque_threshold = 40
-
-    if final_score > clear_threshold:
-        level = 'Clear'
-        color = (0, 255, 0)
-    elif final_score > semi_opaque_threshold:
-        level = 'Semi-Opaque'
-        color = (0, 165, 255)
+    # Score cleanliness based on residue score with weighted penalties
+    if residue_score < 2:
+        cleanliness_score = 10  # Excellent
+    elif residue_score < 4:
+        cleanliness_score = 8   # Good
+    elif residue_score < 6:
+        cleanliness_score = 6   # Fair
+    elif residue_score < 8:
+        cleanliness_score = 4   # Poor
     else:
-        level = 'Opaque'
-        color = (0, 0, 255)
+        cleanliness_score = 2   # Very poor
 
-    overlay = frame.copy()
-    colored_mask = np.zeros_like(frame)
-    colored_mask[mask > 0] = color
-    overlay = cv2.addWeighted(overlay, 1, colored_mask, 0.3, 0)
-
-    scan_y = int((frame.shape[0] * (0.5 + 0.5 * np.sin(time.time() * 3))))
-    scan_line = np.zeros_like(mask)
-    cv2.line(scan_line, (0, scan_y), (frame.shape[1], scan_y), 255, 2)
-    scan_line = cv2.bitwise_and(scan_line, mask)
-    overlay[scan_line > 0] = color
-
-    return overlay, level
-
-def classify_output(waste_type, residue_score, transparency_level):
-    if waste_type == 'Tin-Steel Can':
-        if residue_score < 25:
-            return 'High Value'
-        else:
-            return 'Low Value'
-
-    # Step 1: Scoring dictionaries
-    plastic_scores = {
-        'Tin Can': 10,
-        'PET Bottle': 10,
-        'HDPE Plastic, Squeeze-Tube': 8,
-        'HDPE Plastic': 9,
-        'PP': 5,
-        'LDPE': 1,
-        'UHT Box': 2  
-    }
-
-    opacity_scores = {
-        'Clear': 10,
-        'Semi-Opaque': 6,
-        'Opaque': 3
-    }
-
-    # Step 2: Residue Bonus-Malus
-    if residue_score <= 1:
-        residue_clean_score = 10
-    elif residue_score <= 5:
-        residue_clean_score = 7
-    elif residue_score <= 10:
-        residue_clean_score = 3
+    # Score transparency with weighted values
+    if transparency == 'Clear':
+        transparency_score = 10  # Best for recycling
+    elif transparency == 'Semi-Opaque':
+        transparency_score = 5   # Medium value
     else:
-        residue_clean_score = 0
+        transparency_score = 2   # Lowest value
 
-    # Step 3: Retrieve individual scores
-    pt_score = plastic_scores.get(waste_type, 1)
-    op_score = opacity_scores.get(transparency_level, 1)
+    # Calculate weighted sum with adjusted weights
+    final_score = (waste_type_score * 0.4) + (cleanliness_score * 0.35) + (transparency_score * 0.25)
 
-    # Step 4: Weights
-    w_pt = 0.50
-    w_res = 0.30
-    w_op = 0.20
+    # Apply bonuses and penalties
+    if waste_type == 'PET Bottle' and transparency == 'Clear':
+        final_score += 1.0  # Bonus for clear PET
+    elif waste_type == 'HDPE Plastic' and transparency in ['Clear', 'Semi-Opaque']:
+        final_score += 0.5  # Bonus for clear/semi-opaque HDPE
+    elif waste_type == 'Tin-Steel Can' and residue_score > 25:
+        final_score -= 1.0  # Penalty for heavily contaminated metal
 
-    # Step 5: Final weighted score
-    final_score = (pt_score * w_pt) + (residue_clean_score * w_res) + (op_score * w_op)
-
-    # Print breakdown
-    print(f"\nClassification Breakdown:")
-    print(f"  - Waste Type: '{waste_type}' → Score: {pt_score} × {w_pt} = {pt_score * w_pt:.2f}")
-    print(f"  - Residue Score: {residue_score} → Cleanliness Score: {residue_clean_score} × {w_res} = {residue_clean_score * w_res:.2f}")
-    print(f"  - Transparency: '{transparency_level}' → Score: {op_score} × {w_op} = {op_score * w_op:.2f}")
+    # Print classification breakdown
+    print("\nClassification Breakdown:")
+    print(f"  - Waste Type: '{waste_type}' → Score: {waste_type_score} × 0.4 = {waste_type_score * 0.4:.2f}")
+    print(f"  - Residue Score: {residue_score} → Cleanliness Score: {cleanliness_score} × 0.35 = {cleanliness_score * 0.35:.2f}")
+    print(f"  - Transparency: '{transparency}' → Score: {transparency_score} × 0.25 = {transparency_score * 0.25:.2f}")
     print(f"  → Final Score: {final_score:.2f}")
 
-    # Step 6: Classification thresholds
-    if final_score >= 8.0:
-        return 'High Value'
-    elif final_score >= 4.0:
-        return 'Low Value'
+    # Determine classification based on final score and waste type
+    if waste_type == 'PET Bottle':
+        if transparency == 'Clear':
+            classification = 'High Value'
+        else:
+            classification = 'Low Value'
+    elif waste_type == 'HDPE Plastic':
+        if transparency in ['Clear', 'Semi-Opaque']:
+            classification = 'High Value' if final_score >= 7.0 else 'Low Value'
+        else:
+            classification = 'Low Value'
+    elif waste_type == 'Tin-Steel Can':
+        classification = 'High Value' if residue_score < 25 else 'Low Value'
     else:
-        return 'Rejects'
+        classification = 'High Value' if final_score >= 7.0 else 'Low Value'
+
+    return classification
 
 def save_detection_to_excel(detection_data, excel_path='detections.xlsx'):
     """
@@ -248,35 +214,61 @@ class VideoProcessor:
     _camera = None
     _initialized = False
     
-    def __new__(cls):
+    def __new__(cls, *args, **kwargs):
         if cls._instance is None:
             cls._instance = super(VideoProcessor, cls).__new__(cls)
         return cls._instance
     
-    def __init__(self):
-        if not hasattr(self, 'initialized'):
-            self.cap = None
-            self.model = None
-            self.frame_queue = Queue(maxsize=2)
-            self.running = False
-            self.processing = False
-            self.last_boxes = []
-            self.detection_start_time = None
-            self.criteria_met = False
-            self.last_classification = '-'
-            self.current_contamination_score = 0
-            self.background = None
-            self.background_captured = False
-            self.animation_time = 0
-            self.zoom_factor = 1.0
-            self.initialized = True
-            self.latest_result = None
-            # --- New for object tracking ---
-            self.object_trackers = {}  # id: {centroid, timer, state, result}
-            self.next_object_id = 1
-            self.finalized_ids = set()
-            # --- Frame skipping counter ---
-            self._frame_skip_counter = 0
+    def __init__(self, model_path='best.pt'):
+        self.model = YOLO(model_path)
+        self.is_running = False
+        self.current_frame = None
+        self.frame_lock = threading.Lock()
+        self.detection_interval = 0.1  # Reduced from 0.1 to 0.05 seconds for faster updates
+        self.last_detection_time = 0
+        self.detection_callback = None
+        self.camera = None
+        self.frame_count = 0
+        self.processing_frame = False
+        self.last_detection_result = None
+        self.detection_thread = None
+        self.detection_running = False
+        self.detection_lock = threading.Lock()
+        self.frame_skip = 2  # Process every 2nd frame instead of every 3rd
+        
+        # Tracking variables
+        self.tracker = cv2.TrackerCSRT_create()
+        self.tracking = False
+        self.tracked_bbox = None
+        self.tracking_lost_count = 0
+        self.max_tracking_lost = 20  # Maximum frames to keep tracking after detection is lost
+        self.last_valid_bbox = None
+        self.smoothing_factor = 0.7
+        self.min_confidence = 0.3
+        self.min_iou = 0.3
+        self.bbox_history = []
+        self.max_history = 5
+        self.cap = None
+        self.frame_queue = Queue(maxsize=2)
+        self.running = False
+        self.processing = False
+        self.last_boxes = []
+        self.detection_start_time = None
+        self.criteria_met = False
+        self.last_classification = '-'
+        self.current_contamination_score = 0
+        self.background = None
+        self.background_captured = False
+        self.animation_time = 0
+        self.zoom_factor = 1.0
+        self.initialized = True
+        self.latest_result = None
+        self.object_trackers = {}
+        self.next_object_id = 1
+        self.finalized_ids = set()
+        self._frame_skip_counter = 0
+        self.crop_factor = 0.9
+        self.frame_size = (640, 480)  # Reduced frame size for faster processing
     
     def initialize(self):
         if not VideoProcessor._initialized:
@@ -285,24 +277,32 @@ class VideoProcessor:
             if not VideoProcessor._camera.isOpened():
                 raise Exception("Could not connect to camera at index 0. Please check your camera connection.")
             try:
+                # Set optimized resolution for Raspberry Pi
                 VideoProcessor._camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                 VideoProcessor._camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                 VideoProcessor._camera.set(cv2.CAP_PROP_FPS, 30)
                 VideoProcessor._camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                VideoProcessor._camera.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+                VideoProcessor._camera.set(cv2.CAP_PROP_EXPOSURE, -6)
+                VideoProcessor._camera.set(cv2.CAP_PROP_GAIN, 100)
                 actual_width = VideoProcessor._camera.get(cv2.CAP_PROP_FRAME_WIDTH)
                 actual_height = VideoProcessor._camera.get(cv2.CAP_PROP_FRAME_HEIGHT)
                 print(f"Camera resolution set to: {actual_width}x{actual_height}")
             except Exception as e:
                 print(f"Warning: Could not set all camera properties: {str(e)}")
             try:
-                self.model = YOLO("EcoGrade_v11n_SGD.pt")
-                self.model.to('cuda' if torch.cuda.is_available() else 'cpu')
+                self.model = YOLO("best.pt")
+                self.model.to('cpu')  # Force CPU usage
                 print("Model loaded successfully")
             except Exception as e:
                 raise Exception(f"Failed to load YOLO model: {str(e)}")
             try:
                 ret, frame = VideoProcessor._camera.read()
                 if ret:
+                    # Resize frame for faster processing
+                    frame = cv2.resize(frame, self.frame_size)
+                    frame = cv2.GaussianBlur(frame, (5, 5), 0)
+                    frame = cv2.convertScaleAbs(frame, alpha=1.2, beta=10)
                     self.background = frame.copy()
                     self.background_captured = True
                     print("Initial background captured")
@@ -451,11 +451,17 @@ class VideoProcessor:
 
     def _match_object(self, centroid, threshold=50):
         # Find existing object ID by centroid proximity
+        best_match = None
+        min_distance = float('inf')
+        
         for obj_id, data in self.object_trackers.items():
             prev_centroid = data['centroid']
-            if math.hypot(centroid[0] - prev_centroid[0], centroid[1] - prev_centroid[1]) < threshold:
-                return obj_id
-        return None
+            distance = math.hypot(centroid[0] - prev_centroid[0], centroid[1] - prev_centroid[1])
+            if distance < threshold and distance < min_distance:
+                min_distance = distance
+                best_match = obj_id
+                
+        return best_match
 
     def _generate_unique_id(self):
         # Generate a unique 4-character alphanumeric ID
@@ -465,17 +471,22 @@ class VideoProcessor:
                 return new_id
 
     def _process_frames(self):
-        # This method already runs in a separate thread for performance
         while self.running:
             if not self.frame_queue.empty() and not self.processing:
-                # --- Frame skipping: only process every 2nd frame ---
                 self._frame_skip_counter += 1
-                if self._frame_skip_counter % 2 != 0:
-                    self.frame_queue.get()  # Discard this frame
+                if self._frame_skip_counter % 3 != 0:  # Process every 3rd frame
+                    self.frame_queue.get()
                     continue
                 self.processing = True
                 frame = self.frame_queue.get()
                 try:
+                    # Resize frame for faster processing
+                    frame = cv2.resize(frame, self.frame_size)
+                    
+                    # Simplified preprocessing
+                    frame = cv2.GaussianBlur(frame, (3, 3), 0)  # Reduced kernel size
+                    frame = cv2.convertScaleAbs(frame, alpha=1.2, beta=10)
+                    
                     # Process frame
                     height, width = frame.shape[:2]
                     crop_factor = 1
@@ -485,16 +496,21 @@ class VideoProcessor:
                     start_y = (height - crop_height) // 2
                     frame_cropped = frame[start_y:start_y + crop_height, start_x:start_x + crop_width]
 
-                    # Initialize all output frames with the cropped frame
+                    # Initialize output frames
                     model_output = frame_cropped.copy()
                     gray_contrast = cv2.cvtColor(frame_cropped, cv2.COLOR_BGR2GRAY)
-                    gray_contrast = cv2.equalizeHist(gray_contrast)  # Enhance contrast
+                    gray_contrast = cv2.equalizeHist(gray_contrast)
                     mask_display = cv2.cvtColor(gray_contrast, cv2.COLOR_GRAY2BGR)
                     transparency_vis = frame_cropped.copy()
                     residue_detection = frame_cropped.copy()
                     
-                    # Run YOLO detection
-                    results = self.model(frame_cropped, conf=0.7, verbose=False)
+                    # Run YOLO detection with optimized parameters
+                    results = self.model(frame_cropped, 
+                                      conf=0.45,  # Slightly lower confidence threshold
+                                      iou=0.45,   # IOU threshold for NMS
+                                      verbose=False,
+                                      agnostic_nms=True,
+                                      max_det=1)  # Limit to 1 detection
                     
                     current_boxes = []
                     object_detected = False
@@ -507,31 +523,65 @@ class VideoProcessor:
                     detected_ids = set()
                     now = time.time()
 
-                    # Process detection results
+                    # Process detection results with improved logic
                     for result in results:
                         boxes = result.boxes
                         for box in boxes:
                             cls_id = int(box.cls.cpu().numpy()[0])
                             conf = float(box.conf.cpu().numpy()[0])
+                            
+                            # Skip low confidence detections
+                            if conf < 0.45:  # Increased minimum confidence
+                                continue
+                                
                             x1, y1, x2, y2 = map(int, box.xyxy.cpu().numpy()[0])
+                            
+                            # Skip very small detections
+                            if (x2 - x1) * (y2 - y1) < 800:  # Increased minimum area threshold
+                                continue
+                                
                             centroid = self._get_centroid(x1, y1, x2, y2)
                             obj_id = self._match_object(centroid)
+                            
                             if obj_id is None:
                                 obj_id = self._generate_unique_id()
                                 self.object_trackers[obj_id] = {
                                     'centroid': centroid,
                                     'timer': now,
                                     'state': 'analyzing',
-                                    'result': None
+                                    'result': None,
+                                    'confidence': conf,
+                                    'waste_type': None,
+                                    'transparency': None,
+                                    'detection_count': 0,
+                                    'last_update': now,
+                                    'stable_count': 0
                                 }
                             else:
-                                self.object_trackers[obj_id]['centroid'] = centroid
+                                # Update tracking data
+                                tracker = self.object_trackers[obj_id]
+                                prev_centroid = tracker['centroid']
+                                distance = math.hypot(centroid[0] - prev_centroid[0], centroid[1] - prev_centroid[1])
+                                
+                                # Check if object is stable
+                                if distance < 10:  # Small movement threshold
+                                    tracker['stable_count'] += 1
+                                else:
+                                    tracker['stable_count'] = 0
+                                
+                                # Update confidence if new detection is more confident
+                                if conf > tracker.get('confidence', 0):
+                                    tracker['confidence'] = conf
+                                    tracker['centroid'] = centroid
+                                    tracker['last_update'] = now
+                            
                             detected_ids.add(obj_id)
-                            current_obj_id = obj_id  # Store the current object ID
-                            # If already finalized, skip
+                            current_obj_id = obj_id
+                            
                             if obj_id in self.finalized_ids:
                                 continue
-                            # Waste type mapping
+                                
+                            # Waste type mapping with improved confidence
                             waste_types = {
                                 0: 'HDPE Plastic',
                                 1: 'PP',
@@ -542,22 +592,30 @@ class VideoProcessor:
                                 6: 'Tin-Steel Can',
                                 7: 'Mixed Trash'
                             }
-                            current_waste_type = waste_types.get(cls_id, 'Unknown')
+                            
+                            # Only use high confidence detections for waste type
+                            if conf > 0.4:
+                                current_waste_type = waste_types.get(cls_id, 'Unknown')
+                                if current_obj_id:
+                                    self.object_trackers[current_obj_id]['waste_type'] = current_waste_type
+                            else:
+                                current_waste_type = 'Unknown'
+                                
                             object_detected = True
                             
-                            # Draw bounding box on model output
+                            # Draw bounding box
                             box_color = (0, 255, 0)
                             cv2.rectangle(model_output, (x1, y1), (x2, y2), box_color, 4)
                             current_boxes.append((x1, y1, x2, y2, cls_id, conf))
                             
-                            # Create mask
+                            # Create mask with improved accuracy
                             if hasattr(box, 'masks') and box.masks is not None:
                                 mask = box.masks.cpu().numpy()[0]
                                 object_mask = (mask * 255).astype(np.uint8)
                             else:
                                 object_mask[y1:y2, x1:x2] = 255
                             
-                            # Process residue detection
+                            # Process residue detection with improved accuracy
                             cropped_frame = frame_cropped[y1:y2, x1:x2]
                             if cropped_frame.size > 0:
                                 residue_detection_cropped, residue_mask = detect_residue_colors(cropped_frame)
@@ -569,38 +627,35 @@ class VideoProcessor:
                                     mask_display = cv2.cvtColor(residue_mask, cv2.COLOR_GRAY2BGR)
                     
                     # Process transparency
-                    if object_detected and current_waste_type != 'Tin-Steel Can':
-                        transparency_vis, transparency_level = detect_transparency(frame_cropped, object_mask, self.background)
-                        # --- Add mask overlay for opacity_scan (top-right) ---
+                    if object_detected and current_waste_type in ['PET Bottle', 'HDPE Plastic', 'LDPE', 'PP']:
+                        transparency_level = detect_transparency(frame, (x1, y1, x2, y2))
                         if transparency_level in ['Clear', 'Semi-Opaque', 'Opaque']:
+                            if current_obj_id:
+                                self.object_trackers[current_obj_id]['transparency'] = transparency_level
                             if transparency_level == 'Clear':
-                                mask_color = (0, 255, 0)  # Green
+                                mask_color = (0, 255, 0)
                             elif transparency_level == 'Semi-Opaque':
-                                mask_color = (255, 165, 0)  # Orange
+                                mask_color = (255, 165, 0)
                             else:
-                                mask_color = (255, 0, 0)  # Red
+                                mask_color = (255, 0, 0)
                             mask_overlay = np.zeros_like(transparency_vis)
                             mask_overlay[object_mask > 0] = mask_color
-                            # Blend mask with some transparency
                             transparency_vis = cv2.addWeighted(transparency_vis, 1, mask_overlay, 0.35, 0)
-                            # Add glow/flicker effect
                             glow = np.zeros_like(transparency_vis)
                             for x1, y1, x2, y2, cls_id, conf in current_boxes:
                                 cv2.rectangle(glow, (x1, y1), (x2, y2), mask_color, 18)
                             alpha = 0.18 + 0.12 * np.sin(self.animation_time * 4)
                             glow = cv2.GaussianBlur(glow, (25, 25), 0)
                             transparency_vis = cv2.addWeighted(transparency_vis, 1, glow, alpha, 0)
-                            # Draw bounding box for clarity
                             for x1, y1, x2, y2, cls_id, conf in current_boxes:
                                 cv2.rectangle(transparency_vis, (x1, y1), (x2, y2), mask_color, 2)
-                        # Do NOT call add_scan_effect here (no scan line)
                     else:
                         transparency_vis = model_output.copy()
                         transparency_level = 'N/A' if current_waste_type == 'Tin-Steel Can' else '-'
                         if current_waste_type == 'Tin-Steel Can':
                             transparency_vis = self.add_scan_effect(transparency_vis, is_tin=True, boxes=current_boxes)
                     
-                    # Update classification
+                    # Update classification with improved logic
                     if object_detected:
                         criteria_met = (current_waste_type != '-' and 
                                      (transparency_level != '-' or current_waste_type == 'Tin-Steel Can'))
@@ -611,13 +666,17 @@ class VideoProcessor:
                                 self.detection_start_time = current_time
                                 classification = 'Analyzing...'
                             elif current_time - self.detection_start_time >= 0.5:
-                                classification = classify_output(current_waste_type, self.current_contamination_score, transparency_level)
-                                self.last_classification = classification
+                                # Only classify if object is stable
+                                if current_obj_id and self.object_trackers[current_obj_id]['stable_count'] >= 3:
+                                    classification = classify_output(current_waste_type, self.current_contamination_score, transparency_level)
+                                    self.last_classification = classification
+                                else:
+                                    classification = 'Analyzing...'
                         else:
                             missing_criteria = []
                             if current_waste_type == '-':
                                 missing_criteria.append('Type')
-                            if transparency_level == '-' and current_waste_type != 'Tin-Steel Can':
+                            if transparency_level == '-' and current_waste_type in ['PET Bottle', 'HDPE Plastic', 'LDPE', 'PP']:
                                 missing_criteria.append('Transparency')
                             classification = f"Waiting for: {', '.join(missing_criteria)}"
                             self.detection_start_time = None
@@ -627,12 +686,6 @@ class VideoProcessor:
                     
                     # Add animation to model output
                     model_output = self.add_detection_animation(model_output, object_detected, current_boxes)
-                    
-                    # Ensure all frames are valid and properly sized
-                    for frame_name, frame in [('model', model_output), ('opacity', transparency_vis),
-                                            ('residue', residue_detection), ('mask', mask_display)]:
-                        if frame is None or frame.size == 0:
-                            frame = frame_cropped.copy()
                     
                     # Prepare result with all frames
                     result = {
@@ -645,31 +698,30 @@ class VideoProcessor:
                         'data': {
                             'id': current_obj_id,
                             'waste_type': current_waste_type,
-                            'confidence': conf if object_detected else 0,
-                            'contamination': self.current_contamination_score,
+                            'confidence_level': conf if object_detected else 0,
+                            'contamination_score': self.current_contamination_score,
                             'transparency': transparency_level,
                             'classification': classification
                         }
                     }
                     self.latest_result = result
                     
-                    # 2s analysis window
+                    # 2s analysis window with improved tracking
                     if current_obj_id is not None:
                         tracker = self.object_trackers[current_obj_id]
                         if tracker['state'] == 'analyzing':
-                            if now - tracker['timer'] >= 2.0:
-                                # Finalize result
+                            if now - tracker['timer'] >= 1:
                                 classification = classify_output(current_waste_type, self.current_contamination_score, transparency_level)
                                 tracker['result'] = {
                                     'id': current_obj_id,
                                     'waste_type': current_waste_type,
                                     'opacity': transparency_level,
-                                    'contamination': self.current_contamination_score,
-                                    'classification': classification
+                                    'contamination_score': self.current_contamination_score,
+                                    'classification': classification,
+                                    'confidence_level': conf if object_detected else 0
                                 }
                                 tracker['state'] = 'finalized'
                                 self.finalized_ids.add(current_obj_id)
-                                # Store in DB and emit
                                 self.emit_detection_result(tracker['result'])
                             else:
                                 classification = 'Analyzing...'
@@ -684,46 +736,312 @@ class VideoProcessor:
             time.sleep(0.01)  # Prevent CPU overload
 
     def emit_detection_result(self, result_data):
-        # Assign a timestamp (ID is already assigned)
-        result_data['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        # Store in DB (implement as needed)
-        # save_detection_to_excel(result_data)  # Optionally keep Excel
-        # Store in SQLite DB for charts/tables
-        self._store_measurement(result_data)
-        # ... emit to UI if needed ...
+        """Emit detection result and store in database if valid"""
+        # Only store valid detections
+        if result_data.get('classification') not in [
+            'Analyzing...', 'No object detected',
+            'Waiting for: Type', 'Waiting for: Transparency',
+            'Waiting for: Type, Transparency', 'Unknown', '-'
+        ]:
+            # Assign a timestamp and generate unique ID
+            result_data['timestamp'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            if 'id' not in result_data:
+                result_data['id'] = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+            
+            # Store in SQLite DB
+            self._store_measurement(result_data)
 
     def _store_measurement(self, result_data):
-        # Store in SQLite DB for table/graphs
+        """Store measurement in SQLite database"""
         db_path = Path('data/measurements.db')
         db_path.parent.mkdir(exist_ok=True)
         conn = sqlite3.connect(str(db_path))
         c = conn.cursor()
+        
+        # Create table if not exists
         c.execute('''CREATE TABLE IF NOT EXISTS detections (
             id TEXT PRIMARY KEY,
             timestamp TEXT,
             waste_type TEXT,
-            opacity TEXT,
+            confidence_level TEXT,
             contamination REAL,
             classification TEXT
         )''')
-        c.execute('''INSERT OR REPLACE INTO detections (id, timestamp, waste_type, opacity, contamination, classification)
-                     VALUES (?, ?, ?, ?, ?, ?)''',
-                  (str(result_data['id']), result_data['timestamp'], result_data['waste_type'],
-                   result_data['opacity'], float(result_data['contamination']), result_data['classification']))
-        conn.commit()
+        
+        # Check if this detection already exists (by both ID and timestamp)
+        c.execute('SELECT id FROM detections WHERE id = ? OR timestamp = ?', 
+                 (str(result_data['id']), result_data['timestamp']))
+        if not c.fetchone():
+            # Only insert if it's a new detection
+            try:
+                # Get confidence level from the detection result
+                confidence = result_data.get('confidence_level', '0%')
+                if isinstance(confidence, float):
+                    confidence = f"{confidence:.1f}%"
+                
+                c.execute('''INSERT INTO detections (id, timestamp, waste_type, confidence_level, contamination, classification)
+                             VALUES (?, ?, ?, ?, ?, ?)''',
+                          (str(result_data['id']), result_data['timestamp'], result_data['waste_type'],
+                           confidence, float(result_data['contamination_score']), result_data['classification']))
+                conn.commit()
+            except sqlite3.IntegrityError:
+                # If there's still a conflict, skip this insertion
+                pass
+        
         conn.close()
 
+    def _update_tracking(self, frame):
+        if not self.tracking or self.tracked_bbox is None:
+            return None
+        
+        success, bbox = self.tracker.update(frame)
+        
+        if success:
+            # Convert bbox to integers
+            x, y, w, h = [int(v) for v in bbox]
+            
+            # Add to history
+            self.bbox_history.append((x, y, w, h))
+            if len(self.bbox_history) > self.max_history:
+                self.bbox_history.pop(0)
+            
+            # Calculate smoothed bbox
+            if len(self.bbox_history) > 0:
+                avg_x = int(np.mean([b[0] for b in self.bbox_history]))
+                avg_y = int(np.mean([b[1] for b in self.bbox_history]))
+                avg_w = int(np.mean([b[2] for b in self.bbox_history]))
+                avg_h = int(np.mean([b[3] for b in self.bbox_history]))
+                
+                # Apply smoothing
+                if self.last_valid_bbox is not None:
+                    last_x, last_y, last_w, last_h = self.last_valid_bbox
+                    x = int(self.smoothing_factor * last_x + (1 - self.smoothing_factor) * avg_x)
+                    y = int(self.smoothing_factor * last_y + (1 - self.smoothing_factor) * avg_y)
+                    w = int(self.smoothing_factor * last_w + (1 - self.smoothing_factor) * avg_w)
+                    h = int(self.smoothing_factor * last_h + (1 - self.smoothing_factor) * avg_h)
+                else:
+                    x, y, w, h = avg_x, avg_y, avg_w, avg_h
+                
+                # Ensure minimum size
+                w = max(w, 50)
+                h = max(h, 50)
+                
+                # Update last valid bbox
+                self.last_valid_bbox = (x, y, w, h)
+                self.tracking_lost_count = 0
+                
+                return (x, y, w, h)
+        
+        self.tracking_lost_count += 1
+        if self.tracking_lost_count > self.max_tracking_lost:
+            self.tracking = False
+            self.tracked_bbox = None
+            self.last_valid_bbox = None
+            self.bbox_history.clear()
+        
+        return None
+
+    def _start_tracking(self, frame, bbox):
+        self.tracker = cv2.TrackerCSRT_create()  # Create new tracker instance
+        success = self.tracker.init(frame, bbox)
+        if success:
+            self.tracking = True
+            self.tracked_bbox = bbox
+            self.last_valid_bbox = bbox
+            self.bbox_history = [bbox]
+            self.tracking_lost_count = 0
+            return True
+        return False
+
+    def apply_crop_factor(self, frame):
+        if self.crop_factor <= 0.9:
+            return frame  # No crop
+        h, w = frame.shape[:2]
+        new_w, new_h = int(w / self.crop_factor), int(h / self.crop_factor)
+        x1 = (w - new_w) // 2
+        y1 = (h - new_h) // 2
+        cropped = frame[y1:y1+new_h, x1:x1+new_w]
+        # Resize back to original size for display
+        return cv2.resize(cropped, (w, h), interpolation=cv2.INTER_LINEAR)
+
+    def get_waste_type(self, class_name):
+        """Get the waste type from the class name"""
+        waste_types = {
+            'PET': 'PET',
+            'HDPE': 'HDPE',
+            'LDPE': 'LDPE',
+            'PP': 'PP',
+            'PS': 'PS',
+            'PVC': 'PVC',
+            'Tin-Steel Can': 'Tin-Steel Can',
+            'Mixed Trash': 'Mixed Trash'
+        }
+        return waste_types.get(class_name, 'Unknown')
+
+    def get_transparency(self, class_name):
+        """Get the transparency level from the class name"""
+        transparency_levels = {
+            'PET': 'Transparent',
+            'HDPE': 'Opaque',
+            'LDPE': 'Opaque',
+            'PP': 'Opaque',
+            'PS': 'Transparent',
+            'PVC': 'Transparent',
+            'Tin-Steel Can': 'Opaque',
+            'Mixed Trash': 'Unknown'
+        }
+        return transparency_levels.get(class_name, 'Unknown')
+
+    def calculate_contamination_score(self, confidence, waste_type, transparency):
+        """Calculate contamination score based on confidence, waste type, and transparency"""
+        # Base score from waste type
+        if waste_type == 'PET':
+            waste_type_score = 9   # High base score
+        elif waste_type == 'LDPE':
+            waste_type_score = 5   # Medium-high base score
+        elif waste_type == 'PP':
+            waste_type_score = 6   # Medium base score
+        elif waste_type == 'Tin-Steel Can':
+            waste_type_score = 10   # High base score for metal
+        elif waste_type == 'Mixed Trash':
+            waste_type_score = 3   # Low base score for mixed waste
+        else:
+            waste_type_score = 4   # Default base score
+
+        # Calculate final score
+        final_score = (waste_type_score * confidence) * 10
+        return min(max(final_score, 0), 100)  # Ensure score is between 0 and 100
+
+    def classify_waste(self, waste_type, transparency, contamination_score):
+        """Classify waste based on type, transparency, and contamination score"""
+        if waste_type == 'Unknown' or transparency == 'Unknown':
+            return 'Unknown'
+            
+        if contamination_score >= 70:
+            return 'Recyclable'
+        elif contamination_score >= 40:
+            return 'Conditionally Recyclable'
+        else:
+            return 'Non-Recyclable'
+
     def process_frame(self, frame):
-        # Detect a new placed object
-        if self.last_opacity_scan_time is None or time.time() - self.last_opacity_scan_time >= 2:
-            # Perform opacity scan
-            opacity_result = self.scan_opacity(frame)
-            # Store the result in the database
-            self._store_measurement(opacity_result)
-            self.last_opacity_scan_time = time.time()
-            # Stop detecting this object and count as new ID
-            self.current_detection_id += 1
-            # Emit the detection result for real-time updates
-            self.emit_detection_result(opacity_result)
-            return frame, self.current_detection_id
-        return frame, None 
+        """Process a single frame for detection"""
+        if frame is None:
+            return None
+            
+        try:
+            # If we're tracking, update the tracker
+            if self.tracking and self.tracked_bbox is not None:
+                success, bbox = self.tracker.update(frame)
+                if success:
+                    self.tracked_bbox = bbox
+                    self.tracking_lost_count = 0
+                    # Draw the tracked bounding box
+                    x, y, w, h = [int(v) for v in bbox]
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+                    return self.last_detection_result
+                else:
+                    self.tracking_lost_count += 1
+                    if self.tracking_lost_count > self.max_tracking_lost:
+                        self.tracking = False
+                        self.tracked_bbox = None
+                        self.tracking_lost_count = 0
+            
+            # Run detection with optimized settings
+            results = self.model(frame, verbose=False, conf=0.5, iou=0.45, max_det=1)
+            
+            # Process results
+            if results and len(results) > 0:
+                result = results[0]
+                if result.boxes and len(result.boxes) > 0:
+                    # Get the first detection
+                    box = result.boxes[0]
+                    confidence = float(box.conf[0])
+                    class_id = int(box.cls[0])
+                    class_name = result.names[class_id]
+                    
+                    # Get bounding box coordinates
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    bbox = (x1, y1, x2 - x1, y2 - y1)
+                    
+                    # Initialize tracker with new detection
+                    self.tracker = cv2.TrackerCSRT_create()
+                    self.tracker.init(frame, bbox)
+                    self.tracking = True
+                    self.tracked_bbox = bbox
+                    self.tracking_lost_count = 0
+                    self.last_valid_bbox = bbox
+                    
+                    # Get waste type
+                    waste_type = self.get_waste_type(class_name)
+                    
+                    # Calculate contamination score
+                    contamination_score = self.calculate_contamination_score(confidence, waste_type, None)
+                    
+                    # Determine classification
+                    classification = self.classify_waste(waste_type, None, contamination_score)
+                    
+                    # Store the detection result
+                    detection_result = {
+                        'waste_type': waste_type,
+                        'contamination_score': contamination_score,
+                        'classification': classification,
+                        'confidence': confidence
+                    }
+                    
+                    # Update last detection result
+                    with self.detection_lock:
+                        self.last_detection_result = detection_result
+                    
+                    # Draw the detection bounding box
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    
+                    return detection_result
+            
+            # If no detection, return "No object detected"
+            return {
+                'waste_type': 'No object detected',
+                'contamination_score': 0.0,
+                'classification': 'No object detected',
+                'confidence': 0.0
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing frame: {e}")
+            return None
+
+    def run_detection_loop(self):
+        """Run the detection loop in a separate thread"""
+        while self.detection_running:
+            current_time = time.time()
+            
+            # Check if it's time for a new detection
+            if current_time - self.last_detection_time >= self.detection_interval:
+                with self.frame_lock:
+                    if self.current_frame is not None and not self.processing_frame:
+                        self.processing_frame = True
+                        frame = self.current_frame.copy()
+                        self.processing_frame = False
+                        
+                        # Skip frames to reduce lag
+                        self.frame_count += 1
+                        if self.frame_count % (self.frame_skip + 1) != 0:
+                            continue
+                        
+                        # Process frame
+                        result = self.process_frame(frame)
+                        
+                        # Update last detection time
+                        self.last_detection_time = current_time
+                        
+                        # Send result through callback immediately
+                        if result and self.detection_callback:
+                            self.detection_callback(result)
+            
+            # Reduced sleep time for more frequent updates
+            time.sleep(0.005)  # Reduced from 0.01 to 0.005 seconds
+
+    def set_crop_factor(self, factor):
+        if factor < 0.9:  # Prevent zooming out too much
+            factor = 0.9
+        self.crop_factor = factor 

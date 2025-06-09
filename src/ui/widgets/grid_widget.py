@@ -24,7 +24,7 @@ class GridWidget(RoundedWidget):
         filter_dropdown.addItems(["All", "Type 1", "Type 2", "Type 3"])
         filter_dropdown.setStyleSheet("""
             QComboBox {
-                background-color: #1e40af;
+                background-color: #16324b;
                 color: white;
                 border: 1px solid white;
                 border-radius: 5px;
@@ -56,7 +56,7 @@ class GridWidget(RoundedWidget):
                 cell.setMinimumSize(60, 40)
                 cell.setStyleSheet("""
                     QLabel {
-                        background-color: #1e40af;
+                        background-color: #16324b;
                         border: 1px solid white;
                         border-radius: 3px;
                     }

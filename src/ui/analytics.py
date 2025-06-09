@@ -17,9 +17,9 @@ COLORS = {
     'background': '#111827',
     'panel': '#2D2D2D',
     'text': '#FFFFFF',
-    'accent': '#4CAF50',
-    'warning': '#2196F3',
-    'error': '#F44336',
+    'accent': '#4CAF50',  # Green for High Value
+    'warning': '#FFC107',  # Yellow for Rejects
+    'error': '#F44336',   # Red for Mixed
     'border': '#3D3D3D',
     'grid': '#3D3D3D'
 }
@@ -44,47 +44,43 @@ BAR_TYPE_COLORS = {
 def get_bar_color(waste_type):
     return BAR_TYPE_COLORS.get(waste_type, '#bdbdbd')
 
-class Panel(QWidget):
+class Panel(QFrame):
     def __init__(self, title, parent=None):
         super().__init__(parent)
-        self.initUI(title)
+        self.setStyleSheet("""
+            QFrame {
+                background-color: #111827;
+                border-radius: 10px;
+                border: 1px solid #16324b;
+            }
+        """)
         
-    def initUI(self, title):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setContentsMargins(15, 15, 15, 15)
         layout.setSpacing(10)
         
-        # Title label with Fredoka font
+        # Title label with centered text and adjusted styling
         title_label = QLabel(title)
-        title_label.setFont(QFont('Fredoka', 18, QFont.Bold))
         title_label.setStyleSheet("""
             QLabel {
                 color: white;
-                background-color: transparent;
-                padding: 5px;
                 font-family: 'Fredoka';
+                font-size: 14px;
+                font-weight: 600;
+                background-color: transparent;
+                border: none;
+                padding: 2px;
             }
         """)
         title_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title_label)
         
         # Content widget
         self.content_widget = QWidget()
         self.content_layout = QVBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Add widgets to main layout
-        layout.addWidget(title_label)
+        self.content_layout.setSpacing(10)
         layout.addWidget(self.content_widget)
-        
-        # Set panel style
-        self.setStyleSheet("""
-            QWidget {
-                background-color: #111827;
-                border-radius: 10px;
-                border: 1px solid #16324b;
-                font-family: 'Fredoka';
-            }
-        """)
 
 class AnalyticsWidget(QWidget):
     def __init__(self, parent=None):
@@ -178,7 +174,7 @@ class AnalyticsWidget(QWidget):
         self.type_filter.addItem("All Types")
         self.type_filter.addItems([
             "PET Bottle", "HDPE Plastic", "PP", "LDPE", 
-            "Tin-Steel Can", "UHT Box", "Mixed"
+            "Tin-Steel Can", "Mixed", "Mixed"
         ])
         
         classification_filter_label = QLabel("Classification:")
@@ -211,13 +207,32 @@ class AnalyticsWidget(QWidget):
         filter_layout.addStretch()
         
         # Add spacing before export button
-        filter_layout.addSpacing(180)  # Add 20 pixels of spacing
+        filter_layout.addSpacing(200)  # Add 20 pixels of spacing
+        
+        # Add delete button
+        delete_btn = QPushButton()
+        delete_btn.setIcon(QIcon("src/ui/assets/trash-2.svg"))
+        delete_btn.setIconSize(QSize(15, 15))
+        delete_btn.setFixedSize(26, 26)
+        delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #111827;
+                border: 1px solid #16324b;
+                border-radius: 5px;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #ef4444;
+            }
+        """)
+        delete_btn.clicked.connect(self.delete_selected)
+        filter_layout.addWidget(delete_btn)
         
         # Add export button
         export_btn = QPushButton()
         export_btn.setIcon(QIcon("src/ui/assets/download.svg"))
-        export_btn.setIconSize(QSize(13, 13))  # Reduced from 20,20 to 16,16
-        export_btn.setFixedSize(23, 23)  # Reduced from 32,32 to 28,28
+        export_btn.setIconSize(QSize(15, 15))  # Reduced from 20,20 to 16,16
+        export_btn.setFixedSize(26, 26)  # Reduced from 32,32 to 28,28
         export_btn.setStyleSheet("""
             QPushButton {
                 background-color: #111827;
@@ -241,13 +256,13 @@ class AnalyticsWidget(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels([
-            'ID', 'Type', 'Opacity', 'Contamination', 'Classification', 'Timestamp'
+            'ID', 'Type', 'Confidence', 'Contamination', 'Classification', 'Timestamp'
         ])
         
         # Set column widths
         self.table.setColumnWidth(0, 54)  # ID column
         self.table.setColumnWidth(1, 110)  # Type column
-        self.table.setColumnWidth(2, 80)   # Opacity column
+        self.table.setColumnWidth(2, 80)   # Confidence column
         
         # Set header and column behavior
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
@@ -333,8 +348,8 @@ class AnalyticsWidget(QWidget):
         
         # Add bar chart with adjusted size
         self.bar_chart = BarChartWidget()
-        self.bar_chart.setMinimumHeight(240)  # Increased from 200
-        self.bar_chart.setMaximumHeight(260)  # Increased from 220
+        self.bar_chart.setMinimumHeight(250)  # Increased from 200
+        self.bar_chart.setMaximumHeight(270)  # Increased from 220
         bar_panel.content_layout.addWidget(self.bar_chart)
         
         # Add layouts to main layout
@@ -392,7 +407,7 @@ class AnalyticsWidget(QWidget):
             where_clause = " AND ".join(conditions)
             
             query = f"""
-            SELECT id, waste_type, opacity, contamination, classification, timestamp
+            SELECT id, waste_type, confidence_level, contamination, classification, timestamp
             FROM detections
             WHERE {where_clause}
             ORDER BY timestamp DESC
@@ -414,8 +429,8 @@ class AnalyticsWidget(QWidget):
                 item.setTextAlignment(Qt.AlignCenter)
                 self.table.setItem(i, 1, item)
                 
-                # Opacity
-                item = QTableWidgetItem(str(row['opacity']))
+                # Confidence
+                item = QTableWidgetItem(str(row['confidence_level']))
                 item.setTextAlignment(Qt.AlignCenter)
                 self.table.setItem(i, 2, item)
                 
@@ -429,11 +444,13 @@ class AnalyticsWidget(QWidget):
                 item = QTableWidgetItem(str(row['classification']))
                 item.setTextAlignment(Qt.AlignCenter)
                 if row['classification'] == 'High Value':
-                    item.setForeground(QColor(COLORS['accent']))
+                    item.setForeground(QColor(COLORS['accent']))  # Green
                 elif row['classification'] == 'Low Value':
-                    item.setForeground(QColor(COLORS['warning']))
+                    item.setForeground(QColor('#2196F3'))  # Blue
                 elif row['classification'] == 'Rejects':
-                    item.setForeground(QColor(COLORS['error']))
+                    item.setForeground(QColor(COLORS['warning']))  # Yellow
+                elif row['classification'] == 'Mixed':
+                    item.setForeground(QColor(COLORS['error']))  # Red
                 self.table.setItem(i, 4, item)
                 
                 # Timestamp
@@ -534,7 +551,7 @@ class AnalyticsWidget(QWidget):
             time_filter = self.time_filter.currentText()
             
             query = """
-            SELECT id, waste_type, opacity, contamination, classification, timestamp
+            SELECT id, waste_type, confidence_level, contamination, classification, timestamp
             FROM detections
             WHERE timestamp >= {time_condition}
             """.format(time_condition=time_conditions[time_filter])
@@ -591,7 +608,7 @@ class AnalyticsWidget(QWidget):
                         color: white;
                     }
                     QPushButton {
-                        background-color: #1e40af;
+                        background-color: #16324b;
                         color: white;
                         border: none;
                         padding: 5px 15px;
@@ -617,7 +634,7 @@ class AnalyticsWidget(QWidget):
                     color: white;
                 }
                 QPushButton {
-                    background-color: #1e40af;
+                    background-color: #16324b;
                     color: white;
                     border: none;
                     padding: 5px 15px;
@@ -628,3 +645,112 @@ class AnalyticsWidget(QWidget):
                 }
             """)
             msg.exec_() 
+
+    def delete_selected(self):
+        """Delete selected rows from the database."""
+        selected_rows = self.table.selectedItems()
+        if not selected_rows:
+            QMessageBox.warning(self, "No Selection", "Please select rows to delete.")
+            return
+        
+        # Get unique row indices
+        row_indices = set(item.row() for item in selected_rows)
+        
+        # Confirm deletion
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        msg.setText(f"Are you sure you want to delete {len(row_indices)} selected items?")
+        msg.setWindowTitle("Confirm Deletion")
+        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+        msg.setStyleSheet("""
+            QMessageBox {
+                background-color: #111827;
+                color: white;
+            }
+            QMessageBox QLabel {
+                color: white;
+            }
+            QPushButton {
+                background-color: #111827;
+                color: white;
+                border: 1px solid #16324b;
+                border-radius: 5px;
+                padding: 5px 15px;
+                min-width: 80px;
+            }
+            QPushButton:hover {
+                border: 1px solid #3ac194;
+            }
+        """)
+        
+        if msg.exec_() == QMessageBox.Yes:
+            try:
+                # Get IDs of selected rows
+                ids_to_delete = []
+                for row in row_indices:
+                    id_item = self.table.item(row, 0)
+                    if id_item:
+                        ids_to_delete.append(id_item.text())
+                
+                # Delete from database
+                db_path = Path('data/measurements.db')
+                conn = sqlite3.connect(str(db_path))
+                c = conn.cursor()
+                
+                # Delete each selected row
+                for id_to_delete in ids_to_delete:
+                    c.execute('DELETE FROM detections WHERE id = ?', (id_to_delete,))
+                
+                conn.commit()
+                conn.close()
+                
+                # Update the table
+                self.update_data()
+                
+                # Show success message
+                QMessageBox.information(self, "Success", 
+                                      f"Successfully deleted {len(ids_to_delete)} items.",
+                                      styleSheet="""
+                                          QMessageBox {
+                                              background-color: #111827;
+                                              color: white;
+                                          }
+                                          QMessageBox QLabel {
+                                              color: white;
+                                          }
+                                          QPushButton {
+                                              background-color: #111827;
+                                              color: white;
+                                              border: 1px solid #16324b;
+                                              border-radius: 5px;
+                                              padding: 5px 15px;
+                                              min-width: 80px;
+                                          }
+                                          QPushButton:hover {
+                                              border: 1px solid #3ac194;
+                                          }
+                                      """)
+                
+            except Exception as e:
+                QMessageBox.critical(self, "Error", 
+                                   f"Failed to delete items: {str(e)}",
+                                   styleSheet="""
+                                       QMessageBox {
+                                           background-color: #111827;
+                                           color: white;
+                                       }
+                                       QMessageBox QLabel {
+                                           color: white;
+                                       }
+                                       QPushButton {
+                                           background-color: #111827;
+                                           color: white;
+                                           border: 1px solid #16324b;
+                                           border-radius: 5px;
+                                           padding: 5px 15px;
+                                           min-width: 80px;
+                                       }
+                                       QPushButton:hover {
+                                           border: 1px solid #3ac194;
+                                       }
+                                   """) 

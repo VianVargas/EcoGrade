@@ -19,7 +19,7 @@ class CameraWidget(QLabel):
             QLabel {
                 background-color: black;
                 border-radius: 10px;
-                border: 2px solid #1e40af;
+                border: 2px solid #16324b;
                 color: white;
                 font-size: 14px;
             }
