@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLabel, QMessageBox
-from PyQt5.QtCore import Qt, QTimer, QSize
-from PyQt5.QtGui import QFont, QPainter, QPainterPath, QIcon
+from PyQt5.QtCore import Qt, QTimer, QSize, QRect
+from PyQt5.QtGui import QFont, QPainter, QPainterPath, QIcon, QColor, QLinearGradient
 from PyQt5.QtSvg import QSvgWidget
 from src.ui.widgets.base_widgets import RoundedWidget
 from src.ui.widgets.camera_widget import CameraWidget
@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from src.utils.app_client import app_client
 import logging
 import traceback
+import math
 
 # Configure logging
 logging.basicConfig(
@@ -29,8 +30,83 @@ class SvgButton(QPushButton):
         super().__init__(text, parent)
         self.svg_path = svg_path
         
+        # Add gradient colors
+        self.green = QColor("#10b981")
+        self.blue = QColor("#004aad")
+        
+        # Set up gradient animation
+        self._wave_phase = 0.0
+        self._hovered = False
+        self.wave_timer = QTimer(self)
+        self.wave_timer.timeout.connect(self.updateWave)
+        self.wave_timer.setInterval(16)
+        
     def set_svg_path(self, svg_path):
         self.svg_path = svg_path
+        self.update()
+            
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        rect = self.rect()
+        
+        # Draw gradient background
+        if self.isDown() or self._hovered:
+            grad = QLinearGradient(rect.left(), rect.top(), rect.left(), rect.bottom())
+            n_stops = 10
+            phase = self._wave_phase
+            for i in range(n_stops + 1):
+                t = i / n_stops
+                wave = 0.13 * math.sin(2 * math.pi * t * 2 + phase * 1.5)
+                blend = min(max(t + wave, 0), 1)
+                
+                r = int(self.green.red() * (1-blend) + self.blue.red() * blend)
+                g = int(self.green.green() * (1-blend) + self.blue.green() * blend)
+                b = int(self.green.blue() * (1-blend) + self.blue.blue() * blend)
+                grad.setColorAt(t, QColor(r, g, b))
+            painter.setBrush(grad)
+        else:
+            painter.setBrush(QColor("#374151"))  # Default state color
+        
+        painter.setPen(Qt.NoPen)
+        painter.drawRoundedRect(rect, 10, 10)
+        
+        # Draw text
+        if self.text():
+            painter.setPen(QColor("white"))
+            painter.setFont(self.font())
+            painter.drawText(rect, Qt.AlignCenter, self.text())
+            
+        # Draw icon if present
+        if not self.icon().isNull():
+            icon_size = self.iconSize()
+            icon_rect = QRect(
+                rect.center().x() - icon_size.width() // 2,
+                rect.center().y() - icon_size.height() // 2,
+                icon_size.width(),
+                icon_size.height()
+            )
+            self.icon().paint(painter, icon_rect)
+        
+        # Draw text if no icon
+        elif self.text():
+            painter.setPen(QColor("white"))
+            painter.setFont(self.font())
+            painter.drawText(rect, Qt.AlignCenter, self.text())
+            
+    def enterEvent(self, event):
+        self._hovered = True
+        self.wave_timer.start()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._hovered = False
+        self.wave_timer.stop()
+        self.update()
+        super().leaveEvent(event)
+
+    def updateWave(self):
+        self._wave_phase += 0.05
         self.update()
 
 class MainView(QWidget):
@@ -39,27 +115,27 @@ class MainView(QWidget):
         self.video_processor = VideoProcessor()
         self.last_classification = None
         self.last_valid_detection = None
-        self.is_two_camera_layout = True  # Track current layout state
+        self.is_two_camera_layout = False  # Start with single camera layout
         self.is_detecting = False  # Track detection state
         self.setup_ui()
         self._show_no_object_detected()
         
     def setup_ui(self):
         layout = QHBoxLayout()
-        layout.setSpacing(10)
+        layout.setSpacing(15)
         
         # Left side - Camera feeds
         self.left_widget = RoundedWidget()
         self.left_layout = QVBoxLayout(self.left_widget)
-        self.left_layout.setContentsMargins(15, 35, 15, 15)
+        self.left_layout.setContentsMargins(15, 10, 15, 15)
         
         # Create camera layout container with smaller size
         self.camera_container = QWidget()
-        self.camera_container.setMinimumSize(700, 550)  # Reduced from 800x700 to 650x500
-        self.camera_container.setMaximumSize(700, 550)  # Added maximum size constraint
+        self.camera_container.setMinimumSize(700, 550)  
+        self.camera_container.setMaximumSize(700, 550)  
         self.camera_container.setStyleSheet("""
             QWidget {
-                background-color: #FFFFFF;  /* Dark gray background */
+                background-color: #111827;  
                 border-radius: 10px;
             }
         """)
@@ -67,18 +143,26 @@ class MainView(QWidget):
         
         # Button container for Start/Stop and Change Layout buttons
         button_container = QWidget()
+        button_container.setFixedWidth(700)
+        button_container.setStyleSheet("""
+            QWidget {
+                background-color: #111827;  
+                margin: 0;
+                padding: 0;
+            }
+        """)
         button_layout = QHBoxLayout(button_container)
-        button_layout.setSpacing(15)
-        button_layout.setContentsMargins(5, 5, 5, 5)
+        button_layout.setSpacing(10)
+        button_layout.setContentsMargins(15, 5, 15, 5)
 
         # Start/Stop button with icon
-        self.start_btn = QPushButton()
+        self.start_btn = SvgButton("")
         self.start_btn.setFixedSize(50, 50)  # Make it square for icon
         self.start_btn.setFont(QFont('Fredoka', 18, QFont.DemiBold))
         
         # Create icons
-        self.camera_on_icon = QIcon("src/ui/assets/camera-off.svg")
-        self.camera_off_icon = QIcon("src/ui/assets/camera.svg")
+        self.camera_off_icon = QIcon("src/ui/assets/camera-off.svg")
+        self.camera_on_icon = QIcon("src/ui/assets/camera.svg")
         
         # Set initial state
         self.start_btn.setIcon(self.camera_off_icon)
@@ -96,12 +180,17 @@ class MainView(QWidget):
             }
             QPushButton:hover {
                 background-color: #4338ca;
+                border: 2px solid #14e7a1;
+            }
+            QPushButton:pressed {
+                background-color: #2563eb;
+                border: 2px solid #14e7a1;
             }
         """)
         self.start_btn.clicked.connect(self.toggle_detection)
         
         # Camera layout change button
-        self.layout_btn = QPushButton("Change Layout")
+        self.layout_btn = SvgButton("Single View")  # Initial text for single view
         self.layout_btn.setFixedSize(120, 40)
         self.layout_btn.setFont(QFont('Fredoka', 12, QFont.DemiBold))
         self.layout_btn.setStyleSheet("""
@@ -115,17 +204,23 @@ class MainView(QWidget):
                 font-weight: 600;
             }
             QPushButton:hover {
-                background-color: #4b5563;
+                background-color: #4338ca;
+                border: 2px solid #14e7a1;
+            }
+            QPushButton:pressed {
+                background-color: #2563eb;
+                border: 2px solid #14e7a1;
             }
         """)
         self.layout_btn.clicked.connect(self.toggle_camera_layout)
         
+        button_layout.addStretch()  # Push buttons to center
         button_layout.addWidget(self.start_btn)
         button_layout.addWidget(self.layout_btn)
+        button_layout.addStretch()  # Push buttons to center
         
-        self.left_layout.addWidget(self.camera_container)
-        self.left_layout.addSpacing(20)  # Reduced spacing from 30 to 20
-        self.left_layout.addWidget(button_container, alignment=Qt.AlignCenter)
+        self.left_layout.addWidget(self.camera_container, 0, Qt.AlignHCenter)
+        self.left_layout.addWidget(button_container, 0, Qt.AlignHCenter)
         self.left_layout.addStretch()
         
         # Right side - Detection results
@@ -182,10 +277,11 @@ class MainView(QWidget):
             QWidget().setLayout(self.camera_container.layout())
         
         # Set smaller fixed size for camera widgets
-        CAMERA_WIDTH = 300  # Reduced from 325
-        CAMERA_HEIGHT = 225  # Reduced from 260
+        #CAMERA_WIDTH = 300  # Reduced from 325
+        CAMERA_HEIGHT = 270  # Reduced from 260
         LARGE_CAMERA_WIDTH = 600  # Reduced from 670 (2 * 280 + 20 spacing)
-        SINGLE_CAMERA_SIZE = 450  # Reduced from 500
+        SINGLE_CAMERA_WIDTH = 680
+        SINGLE_CAMERA_HEIGHT= 520
         
         # Create camera widgets if they don't exist
         if not hasattr(self, 'object_detection_camera'):
@@ -203,7 +299,7 @@ class MainView(QWidget):
         if self.is_two_camera_layout:
             # Two camera layout
             camera_layout = QVBoxLayout()
-            camera_layout.setSpacing(2)  # Reduced from 15 to 5
+            camera_layout.setSpacing(1)  # Reduced from 15 to 5
             camera_layout.setContentsMargins(0, 0, 0, 0)
             
             # Set sizes for two camera layout
@@ -232,7 +328,7 @@ class MainView(QWidget):
             camera_layout.setContentsMargins(0, 0, 0, 0)
             
             # Set size for single camera layout
-            self.object_detection_camera.setFixedSize(SINGLE_CAMERA_SIZE, SINGLE_CAMERA_SIZE)
+            self.object_detection_camera.setFixedSize(SINGLE_CAMERA_WIDTH, SINGLE_CAMERA_HEIGHT)
             
             # Add only the main camera
             camera_layout.addWidget(self.object_detection_camera, alignment=Qt.AlignCenter)
@@ -253,8 +349,49 @@ class MainView(QWidget):
         self.camera_container.update()
 
     def toggle_camera_layout(self):
-        self.is_two_camera_layout = not self.is_two_camera_layout
-        self.setup_camera_layout()
+        """Toggle between single and two camera layouts"""
+        try:
+            # Stop cameras and reset button state if detection is active
+            if self.is_detecting:
+                self.is_detecting = False
+                self.start_btn.setIcon(self.camera_off_icon)
+                self.start_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #6b7280;
+                        color: white;
+                        border: none;
+                        border-radius: 25px;
+                        font-family: 'Fredoka';
+                        font-size: 16px;
+                        font-weight: 600;
+                    }
+                    QPushButton:hover {
+                        background-color: #4b5563;
+                    }
+                    QPushButton QIcon {
+                        color: white;
+                    }
+                """)
+                
+                # Stop all cameras
+                if hasattr(self, 'object_detection_camera'):
+                    self.object_detection_camera.stop_camera()
+                if hasattr(self, 'residue_scan_camera'):
+                    self.residue_scan_camera.stop_camera()
+            
+            # Toggle layout state
+            self.is_two_camera_layout = not self.is_two_camera_layout
+            
+            # Update button text
+            self.layout_btn.setText("Split View" if self.is_two_camera_layout else "Single View")
+            
+            # Update camera layout
+            self.setup_camera_layout()
+            
+        except Exception as e:
+            logging.error(f"Error toggling camera layout: {str(e)}")
+            logging.error(traceback.format_exc())
+            QMessageBox.critical(self, "Error", f"Failed to change camera layout: {str(e)}")
 
     def update_detection_results(self, result_data):
         """Update the detection result widgets with new data"""
@@ -344,6 +481,14 @@ class MainView(QWidget):
                     }
                     QPushButton:hover {
                         background-color: #b91c1c;
+                        border: 2px solid #14e7a1;
+                    }
+                    QPushButton:pressed {
+                        background-color: #991b1b;
+                        border: 2px solid #14e7a1;
+                    }
+                    QPushButton QIcon {
+                        color: white;
                     }
                 """)
                 
@@ -375,7 +520,7 @@ class MainView(QWidget):
                 self.start_btn.setIcon(self.camera_off_icon)
                 self.start_btn.setStyleSheet("""
                     QPushButton {
-                        background-color: #4f46e5;
+                        background-color: #6b7280;
                         color: white;
                         border: none;
                         border-radius: 25px;
@@ -385,6 +530,14 @@ class MainView(QWidget):
                     }
                     QPushButton:hover {
                         background-color: #4338ca;
+                        border: 2px solid #14e7a1;
+                    }
+                    QPushButton:pressed {
+                        background-color: #2563eb;
+                        border: 2px solid #14e7a1;
+                    }
+                    QPushButton QIcon {
+                        color: white;
                     }
                 """)
                 

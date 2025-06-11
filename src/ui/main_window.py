@@ -8,6 +8,7 @@ from .widgets.sidebar_button import SidebarButton
 from .views.about_view import AboutView
 import sys
 import logging
+import traceback
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -163,9 +164,26 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Handle window close event"""
-        # The MainView's closeEvent will handle camera cleanup
-        self.main_view.closeEvent(event)
-        super().closeEvent(event)
+        try:
+            # Stop the video processor
+            if hasattr(self, 'main_view') and hasattr(self.main_view, 'video_processor'):
+                self.main_view.video_processor.stop()
+            
+            # Stop any running cameras
+            if hasattr(self, 'main_view'):
+                if hasattr(self.main_view, 'object_detection_camera'):
+                    self.main_view.object_detection_camera.stop_camera()
+                if hasattr(self.main_view, 'residue_scan_camera'):
+                    self.main_view.residue_scan_camera.stop_camera()
+            
+            # Accept the close event
+            event.accept()
+            
+        except Exception as e:
+            logging.error(f"Error during window close: {str(e)}")
+            logging.error(traceback.format_exc())
+            # Still accept the close event even if there's an error
+            event.accept()
 
 def main():
     app = QApplication(sys.argv)

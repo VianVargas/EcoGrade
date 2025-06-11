@@ -4,6 +4,7 @@ from PyQt5.QtGui import QImage, QPixmap, QColor, QFont
 import cv2
 import numpy as np
 from src.utils.video_processor import VideoProcessor
+import time
 
 class CameraWidget(QLabel):
     result_updated = pyqtSignal(dict)  # Signal to emit detection results
@@ -36,12 +37,15 @@ class CameraWidget(QLabel):
         self.setFont(QFont('Fredoka', 12, QFont.Bold))
         self.setText(f"{view_type.replace('_', ' ').title()} View")
 
-        
-        self.video_processor = video_processor  # Use the shared VideoProcessor
+        self.video_processor = video_processor
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.update_frame)
         self.camera_started = False
         self.error_message = None
+        self.last_update_time = 0
+        self.update_interval = 50  # 20 FPS (1000ms / 20 = 50ms)
+        self.frame_buffer = None
+        self.processing_frame = False
     
     def enterEvent(self, event):
         # Increase glow on hover
@@ -57,28 +61,23 @@ class CameraWidget(QLabel):
     
     def start_camera(self):
         if self.camera_started:
-            return  # Prevent double start
+            return
         try:
             if self.video_processor:
-                # Clear text and frame immediately
                 self.clear()
                 self.setText("")
                 self.update()
                 
-                # Start camera
-                self.update_timer.start(33)  # ~30 FPS
+                # Start camera with reduced update frequency
+                self.update_timer.start(self.update_interval)
                 self.camera_started = True
-                
-                # Enable glow effect when camera starts
                 self.glow_effect.setEnabled(True)
-                # No need to call start_camera on video_processor as it's already started
             else:
                 self.setText("No VideoProcessor")
         except Exception as e:
             self.error_message = str(e)
             print(f"Error starting camera widget: {self.error_message}")
             self.setText(f"Camera Error\n{self.error_message}")
-            # Reset camera state on error
             self.camera_started = False
             self.update_timer.stop()
     
@@ -99,10 +98,15 @@ class CameraWidget(QLabel):
             self.update()
             return
 
+        current_time = time.time() * 1000  # Convert to milliseconds
+        if current_time - self.last_update_time < self.update_interval:
+            return
+
         if self.video_processor and self.video_processor.latest_result is not None:
             result = self.video_processor.latest_result
             frames = result['frames']
-            # Select the appropriate frame based on view type
+            
+            # Select frame based on view type
             if self.view_type == "object_detection":
                 frame = frames['model']
             elif self.view_type == "residue_scan":
@@ -110,48 +114,53 @@ class CameraWidget(QLabel):
             elif self.view_type == "mask":
                 frame = frames['mask']
             else:
-                frame = frames['model']  # Default to model view
+                frame = frames['model']
+
             if frame is not None and frame.size > 0:
-                height, width, channel = frame.shape
+                # Cache the frame buffer
+                if self.frame_buffer is None or self.frame_buffer.shape != frame.shape:
+                    self.frame_buffer = np.zeros_like(frame)
+                
+                # Update frame buffer
+                np.copyto(self.frame_buffer, frame)
+                
+                # Convert to QImage only when needed
+                height, width, channel = self.frame_buffer.shape
                 bytes_per_line = 3 * width
-                q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
+                q_image = QImage(self.frame_buffer.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
+                
+                # Scale pixmap efficiently
                 pixmap = QPixmap.fromImage(q_image)
-                self.setPixmap(pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+                scaled_pixmap = pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.FastTransformation)
+                self.setPixmap(scaled_pixmap)
+                
+                # Emit result
                 self.result_updated.emit(result['data'])
+                self.last_update_time = current_time
             else:
-                print(f"Warning: Empty frame received for {self.view_type}")
-                self.setStyleSheet("""
-                    QLabel {
-                        color: #3ac194;
-                        background-color: black;
-                        border-radius: 10px;
-                        border: 1px solid #3ac194;
-                    }
-                    QLabel:hover {
-                        border: 2px solid #14e7a1;
-                    }
-                """)
-                self.setText(f"{self.view_type.replace('_', ' ').title()} View")
-                self.update()
+                self.handle_empty_frame()
         else:
-            self.setStyleSheet("""
-                QLabel {
-                    color: #3ac194;
-                    background-color: black;
-                    border-radius: 10px;
-                    border: 1px solid #3ac194;
-                }
-                QLabel:hover {
-                    border: 2px solid #14e7a1;
-                }
-            """)
-            self.setText(f"{self.view_type.replace('_', ' ').title()} View")
-            self.update()
+            self.handle_empty_frame()
+
+    def handle_empty_frame(self):
+        self.setStyleSheet("""
+            QLabel {
+                color: #3ac194;
+                background-color: black;
+                border-radius: 10px;
+                border: 1px solid #3ac194;
+            }
+            QLabel:hover {
+                border: 2px solid #14e7a1;
+            }
+        """)
+        self.setText(f"{self.view_type.replace('_', ' ').title()} View")
+        self.update()
     
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if self.pixmap():
-            self.setPixmap(self.pixmap().scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            self.setPixmap(self.pixmap().scaled(self.size(), Qt.KeepAspectRatio, Qt.FastTransformation))
     
     def closeEvent(self, event):
         self.update_timer.stop()

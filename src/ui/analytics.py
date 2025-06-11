@@ -37,8 +37,8 @@ BAR_TYPE_COLORS = {
     'PP': '#ffa726',
     'LDPE': '#ab47bc',
     'Tin-Steel Can': '#bdbdbd',
-    'UHT Box': '#ff7043',
-    'Other': '#789262',
+    'Mixed': '#ff7043',
+    
 }
 
 def get_bar_color(waste_type):
@@ -174,7 +174,7 @@ class AnalyticsWidget(QWidget):
         self.type_filter.addItem("All Types")
         self.type_filter.addItems([
             "PET Bottle", "HDPE Plastic", "PP", "LDPE", 
-            "Tin-Steel Can", "Mixed", "Mixed"
+            "Tin-Steel Can", "UHT Box"
         ])
         
         classification_filter_label = QLabel("Classification:")
@@ -183,7 +183,7 @@ class AnalyticsWidget(QWidget):
         self.classification_filter = QComboBox()
         self.classification_filter.addItem("All Classifications")
         self.classification_filter.addItems([
-            "High Value", "Low Value", "Rejects", "Mixed"
+            "High Value", "Low Value", "Rejects", "Mixed Trash"
         ])
         
         # Apply dropdown style to all comboboxes
@@ -708,49 +708,55 @@ class AnalyticsWidget(QWidget):
                 self.update_data()
                 
                 # Show success message
-                QMessageBox.information(self, "Success", 
-                                      f"Successfully deleted {len(ids_to_delete)} items.",
-                                      styleSheet="""
-                                          QMessageBox {
-                                              background-color: #111827;
-                                              color: white;
-                                          }
-                                          QMessageBox QLabel {
-                                              color: white;
-                                          }
-                                          QPushButton {
-                                              background-color: #111827;
-                                              color: white;
-                                              border: 1px solid #16324b;
-                                              border-radius: 5px;
-                                              padding: 5px 15px;
-                                              min-width: 80px;
-                                          }
-                                          QPushButton:hover {
-                                              border: 1px solid #3ac194;
-                                          }
-                                      """)
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Information)
+                msg.setText(f"Successfully deleted {len(ids_to_delete)} items.")
+                msg.setWindowTitle("Success")
+                msg.setStyleSheet("""
+                    QMessageBox {
+                        background-color: #111827;
+                        color: white;
+                    }
+                    QMessageBox QLabel {
+                        color: white;
+                    }
+                    QPushButton {
+                        background-color: #111827;
+                        color: white;
+                        border: 1px solid #16324b;
+                        border-radius: 5px;
+                        padding: 5px 15px;
+                        min-width: 80px;
+                    }
+                    QPushButton:hover {
+                        border: 1px solid #3ac194;
+                    }
+                """)
+                msg.exec_()
                 
             except Exception as e:
-                QMessageBox.critical(self, "Error", 
-                                   f"Failed to delete items: {str(e)}",
-                                   styleSheet="""
-                                       QMessageBox {
-                                           background-color: #111827;
-                                           color: white;
-                                       }
-                                       QMessageBox QLabel {
-                                           color: white;
-                                       }
-                                       QPushButton {
-                                           background-color: #111827;
-                                           color: white;
-                                           border: 1px solid #16324b;
-                                           border-radius: 5px;
-                                           padding: 5px 15px;
-                                           min-width: 80px;
-                                       }
-                                       QPushButton:hover {
-                                           border: 1px solid #3ac194;
-                                       }
-                                   """) 
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Critical)
+                msg.setText(f"Failed to delete items: {str(e)}")
+                msg.setWindowTitle("Error")
+                msg.setStyleSheet("""
+                    QMessageBox {
+                        background-color: #111827;
+                        color: white;
+                    }
+                    QMessageBox QLabel {
+                        color: white;
+                    }
+                    QPushButton {
+                        background-color: #111827;
+                        color: white;
+                        border: 1px solid #16324b;
+                        border-radius: 5px;
+                        padding: 5px 15px;
+                        min-width: 80px;
+                    }
+                    QPushButton:hover {
+                        border: 1px solid #3ac194;
+                    }
+                """)
+                msg.exec_() 

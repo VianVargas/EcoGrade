@@ -1,6 +1,7 @@
 import socket
 import logging
 from pathlib import Path
+import time
 
 # Configure logging
 log_dir = Path('logs')
@@ -40,6 +41,11 @@ class AppClient:
             'Reject': 'reject'
         }
         
+        # Command timing parameters
+        self.last_command_time = 0
+        self.command_cooldown = 0.05  # 50ms cooldown between commands
+        self.reconnect_delay = 0.1    # 100ms delay before reconnection attempts
+        
         self._initialized = True
         logger.info("AppClient initialized")
     
@@ -50,7 +56,7 @@ class AppClient:
                 self.socket.close()
             
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.socket.settimeout(5)  # Set 5-second timeout
+            self.socket.settimeout(2)  # Reduced from 5 seconds
             self.socket.connect((self.pi_host, self.pi_port))
             logger.info(f"Connected to server at {self.pi_host}:{self.pi_port}")
             return True
@@ -68,11 +74,17 @@ class AppClient:
     def send_command(self, command):
         """Send command to Raspberry Pi."""
         try:
+            current_time = time.time()
+            if current_time - self.last_command_time < self.command_cooldown:
+                return False
+                
             if not self.socket:
                 if not self.connect_to_pi():
+                    time.sleep(self.reconnect_delay)
                     return False
             
             self.socket.send(command.encode())
+            self.last_command_time = current_time
             logger.info(f"Sent command: {command}")
             return True
             
@@ -97,6 +109,7 @@ class AppClient:
                 if not self.send_command(command):
                     # If send failed, try to reconnect and send again
                     if self.connect_to_pi():
+                        time.sleep(self.reconnect_delay)
                         self.send_command(command)
         except Exception as e:
             logger.error(f"Error processing detection: {e}")
