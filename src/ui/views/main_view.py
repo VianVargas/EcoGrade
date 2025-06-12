@@ -154,7 +154,6 @@ class MainView(QWidget):
             QWidget {
                 background-color: #0f172a;  
                 border-radius: 12px;
-                
             }
         """)
         self.setup_camera_layout()
@@ -400,21 +399,22 @@ class MainView(QWidget):
         self.residue_scan_camera.setParent(self.camera_container)
         
         if self.is_two_camera_layout:
-            # Two camera layout
-            camera_layout = QVBoxLayout()
+            # Two camera layout - HORIZONTAL (left and right)
+            camera_layout = QHBoxLayout()
             camera_layout.setSpacing(15)
             camera_layout.setContentsMargins(20, 20, 20, 20)
             
-            # Set sizes for two camera layout
-            camera_height = (container_height - 15) // 2  # Account for spacing
-            self.object_detection_camera.setMinimumSize(container_width, camera_height)
-            self.residue_scan_camera.setMinimumSize(container_width, camera_height)
+            # Set sizes for two camera horizontal layout
+            camera_width = 340  # Half of 680
+            camera_height = 400
+            self.object_detection_camera.setFixedSize(camera_width, camera_height)
+            self.residue_scan_camera.setFixedSize(camera_width, camera_height)
             
             # Set size policies
-            self.object_detection_camera.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-            self.residue_scan_camera.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.object_detection_camera.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            self.residue_scan_camera.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
             
-            # Stack cameras vertically
+            # Place cameras side by side horizontally
             camera_layout.addWidget(self.object_detection_camera)
             camera_layout.addWidget(self.residue_scan_camera)
             
@@ -433,11 +433,11 @@ class MainView(QWidget):
             # Single camera layout
             camera_layout = QVBoxLayout()
             camera_layout.setSpacing(5)
-            camera_layout.setContentsMargins(20, 20, 20, 20)
+            camera_layout.setContentsMargins(70, 20, 30, 20)
             
             # Set size for single camera layout
-            self.object_detection_camera.setMinimumSize(container_width, container_height)
-            self.object_detection_camera.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.object_detection_camera.setFixedSize(680, 440)  # Set specific size for main camera
+            self.object_detection_camera.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # Prevent resizing
             
             # Add only the main camera
             camera_layout.addWidget(self.object_detection_camera)
