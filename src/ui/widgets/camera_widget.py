@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import QLabel, QGraphicsDropShadowEffect
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QSize
 from PyQt5.QtGui import QImage, QPixmap, QColor, QFont
 import cv2
 import numpy as np
@@ -129,9 +129,10 @@ class CameraWidget(QLabel):
                 bytes_per_line = 3 * width
                 q_image = QImage(self.frame_buffer.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
                 
-                # Scale pixmap efficiently
+                # Scale pixmap efficiently to 80% of container size
                 pixmap = QPixmap.fromImage(q_image)
-                scaled_pixmap = pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.FastTransformation)
+                target_size = QSize(int(self.width() * 0.9), int(self.height() * 0.9))
+                scaled_pixmap = pixmap.scaled(target_size, Qt.KeepAspectRatio, Qt.FastTransformation)
                 self.setPixmap(scaled_pixmap)
                 
                 # Emit result

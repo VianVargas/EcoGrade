@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLabel, QMessageBox
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLabel, QMessageBox, QSizePolicy
 from PyQt5.QtCore import Qt, QTimer, QSize, QRect
 from PyQt5.QtGui import QFont, QPainter, QPainterPath, QIcon, QColor, QLinearGradient
 from PyQt5.QtSvg import QSvgWidget
@@ -121,139 +121,245 @@ class MainView(QWidget):
         self._show_no_object_detected()
         
     def setup_ui(self):
+        # Set main background color to match analytics
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #0f172a;
+                color: white;
+            }
+        """)
+        
         layout = QHBoxLayout()
-        layout.setSpacing(15)
+        layout.setSpacing(20)
+        layout.setContentsMargins(20, 20, 20, 20)
         
-        # Left side - Camera feeds
-        self.left_widget = RoundedWidget()
+        # Left side - Camera feeds (matches analytics layout)
+        self.left_widget = QWidget()
+        self.left_widget.setStyleSheet("""
+            QWidget {
+                background-color: #1e293b;
+                border-radius: 12px;
+                border: 1px solid #334155;
+            }
+        """)
         self.left_layout = QVBoxLayout(self.left_widget)
-        self.left_layout.setContentsMargins(15, 10, 15, 15)
+        self.left_layout.setContentsMargins(20, 20, 20, 20)
+        self.left_layout.setSpacing(15)
         
-        # Create camera layout container with smaller size
+        # Create camera layout container with analytics styling //0f172a, border: 2px solid #10b981;
         self.camera_container = QWidget()
-        self.camera_container.setMinimumSize(700, 550)  
-        self.camera_container.setMaximumSize(700, 550)  
+        self.camera_container.setMinimumSize(500, 400)  # Reduced from 700, 500
+        self.camera_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.camera_container.setStyleSheet("""
             QWidget {
-                background-color: #111827;  
-                border-radius: 10px;
+                background-color: #0f172a;  
+                border-radius: 12px;
+                
             }
         """)
         self.setup_camera_layout()
         
-        # Button container for Start/Stop and Change Layout buttons
+        # Button container with analytics styling
         button_container = QWidget()
-        button_container.setFixedWidth(700)
+        button_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         button_container.setStyleSheet("""
             QWidget {
-                background-color: #111827;  
+                background-color: #0f172a;
                 margin: 0;
                 padding: 0;
             }
         """)
         button_layout = QHBoxLayout(button_container)
-        button_layout.setSpacing(10)
-        button_layout.setContentsMargins(15, 5, 15, 5)
+        button_layout.setSpacing(15)
+        button_layout.setContentsMargins(0, 10, 0, 10)
 
-        # Start/Stop button with icon
+        # Start/Stop button with analytics styling
         self.start_btn = SvgButton("")
-        self.start_btn.setFixedSize(50, 50)  # Make it square for icon
-        self.start_btn.setFont(QFont('Fredoka', 18, QFont.DemiBold))
+        self.start_btn.setFixedSize(60, 60)
+        self.start_btn.setFont(QFont('Inter', 14, QFont.DemiBold))
         
         # Create icons
         self.camera_off_icon = QIcon("src/ui/assets/camera-off.svg")
         self.camera_on_icon = QIcon("src/ui/assets/camera.svg")
         
-        # Set initial state
+        # Set initial state with analytics styling
         self.start_btn.setIcon(self.camera_off_icon)
-        self.start_btn.setIconSize(QSize(32, 32))  # Larger icon size
+        self.start_btn.setIconSize(QSize(32, 32))
         
         self.start_btn.setStyleSheet("""
             QPushButton {
-                background-color: #6b7280;
+                background-color: #374151;
                 color: white;
-                border: none;
-                border-radius: 25px;
-                font-family: 'Fredoka';
-                font-size: 20px;
+                border: 1px solid #4b5563;
+                border-radius: 30px;
+                font-family: 'Inter';
+                font-size: 14px;
                 font-weight: 600;
             }
             QPushButton:hover {
-                background-color: #4338ca;
-                border: 2px solid #14e7a1;
+                background-color: #4b5563;
+                border: 1px solid #10b981;
             }
             QPushButton:pressed {
-                background-color: #2563eb;
-                border: 2px solid #14e7a1;
+                background-color: #374151;
+                border: 1px solid #10b981;
             }
         """)
         self.start_btn.clicked.connect(self.toggle_detection)
         
-        # Camera layout change button
-        self.layout_btn = SvgButton("Single View")  # Initial text for single view
-        self.layout_btn.setFixedSize(120, 40)
-        self.layout_btn.setFont(QFont('Fredoka', 12, QFont.DemiBold))
+        # Camera layout change button with analytics styling
+        self.layout_btn = SvgButton("Single View")
+        self.layout_btn.setFixedSize(140, 60)
+        self.layout_btn.setFont(QFont('Inter', 12, QFont.DemiBold))
         self.layout_btn.setStyleSheet("""
             QPushButton {
-                background-color: #6b7280;
+                background-color: #374151;
                 color: white;
-                border: none;
+                border: 1px solid #4b5563;
                 border-radius: 20px;
-                font-family: 'Fredoka';
+                font-family: 'Inter';
                 font-size: 12px;
                 font-weight: 600;
+                padding: 8px 16px;
             }
             QPushButton:hover {
-                background-color: #4338ca;
-                border: 2px solid #14e7a1;
+                background-color: #4b5563;
+                border: 1px solid #10b981;
             }
             QPushButton:pressed {
-                background-color: #2563eb;
-                border: 2px solid #14e7a1;
+                background-color: #374151;
+                border: 1px solid #10b981;
             }
         """)
         self.layout_btn.clicked.connect(self.toggle_camera_layout)
         
-        button_layout.addStretch()  # Push buttons to center
+        button_layout.addStretch()
         button_layout.addWidget(self.start_btn)
         button_layout.addWidget(self.layout_btn)
-        button_layout.addStretch()  # Push buttons to center
+        button_layout.addStretch()
         
-        self.left_layout.addWidget(self.camera_container, 0, Qt.AlignHCenter)
-        self.left_layout.addWidget(button_container, 0, Qt.AlignHCenter)
-        self.left_layout.addStretch()
+        self.left_layout.addWidget(self.camera_container, 1)
+        self.left_layout.addWidget(button_container)
         
-        # Right side - Detection results
+        # Right side - Detection results with analytics styling
         right_widget = QWidget()
+        right_widget.setStyleSheet("""
+            QWidget {
+                background-color: transparent;
+            }
+        """)
         right_layout = QVBoxLayout(right_widget)
-        right_layout.setSpacing(15)
-        right_layout.setContentsMargins(20, 80, 20, 20)
+        right_layout.setSpacing(20)
+        right_layout.setContentsMargins(0, 250, 0, 200)
         
-        # Detection result panels
-        self.waste_type_widget = DetectionResultWidget("WASTE TYPE:", "-")
-        self.confidence_widget = DetectionResultWidget("CONFIDENCE LEVEL:", "0.00%")
-        self.contamination_widget = DetectionResultWidget("CONTAMINATION:", "0.00%")
-        self.classification_widget = DetectionResultWidget("RESULT:", "-")
+        # Detection result panels with analytics design
+        self.waste_type_widget = self.create_result_panel("WASTE TYPE:", "No object detected")
+        self.confidence_widget = self.create_result_panel("CONFIDENCE LEVEL:", "0.00%")
+        self.contamination_widget = self.create_result_panel("CONTAMINATION:", "0.00%")
+        self.classification_widget = self.create_result_panel("RESULT:", "No object detected")
         
-        # Update font for all detection result widgets
-        for widget in [self.waste_type_widget, self.confidence_widget,
-                      self.contamination_widget, self.classification_widget]:
-            widget.set_font('Fredoka')
-            widget.title_label.setFont(QFont('Fredoka', 16, QFont.DemiBold))
-            widget.value_label.setFont(QFont('Fredoka', 18, QFont.DemiBold))
-        
-        # Add widgets in the new sequence
+        # Add widgets to right layout
         right_layout.addWidget(self.waste_type_widget)
         right_layout.addWidget(self.confidence_widget)
         right_layout.addWidget(self.contamination_widget)
         right_layout.addWidget(self.classification_widget)
-        
         right_layout.addStretch()
         
-        layout.addWidget(self.left_widget, 2)
-        layout.addWidget(right_widget, 1)
+        # Set layout proportions to match analytics
+        layout.addWidget(self.left_widget, 3)  # Camera section takes more space
+        layout.addWidget(right_widget, 1)      # Results section
         
         self.setLayout(layout)
+
+    def create_result_panel(self, title, value):
+        """Create a result panel with analytics styling"""
+        panel = QWidget()
+        panel.setFixedHeight(80)
+        panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        panel.setStyleSheet("""
+            QWidget {
+                background-color: #1e293b;
+                border-radius: 12px;
+                border: 1px solid #334155;
+                padding: 0px;
+            }
+        """)
+        
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(20, 12, 20, 12)
+        layout.setSpacing(8)
+        
+        # Title label
+        title_label = QLabel(title)
+        title_label.setFont(QFont('Inter', 11, QFont.Normal))
+        title_label.setStyleSheet("""
+            QLabel {
+                color: #94a3b8;
+                background-color: transparent;
+                border: none;
+                font-weight: 500;
+            }
+        """)
+        
+        # Value label
+        value_label = QLabel(value)
+        value_label.setFont(QFont('Inter', 16, QFont.DemiBold))
+        
+        # Set value color based on content
+        if "No object detected" in value or value == "-":
+            color = "#10b981"  # Green for no object/default state
+        elif "Analyzing..." in value:
+            color = "#f59e0b"  # Amber for analyzing
+        elif "High Value" in value:
+            color = "#10b981"  # Green for high value
+        elif "Mixed" in value:
+            color = "#ef4444"  # Red for mixed
+        else:
+            color = "#10b981"  # Default green
+            
+        value_label.setStyleSheet(f"""
+            QLabel {{
+                color: {color};
+                background-color: transparent;
+                border: none;
+                font-weight: 600;
+            }}
+        """)
+        
+        layout.addWidget(title_label)
+        layout.addWidget(value_label)
+        
+        # Store references for easy updating
+        panel.title_label = title_label
+        panel.value_label = value_label
+        panel.update_value = lambda new_value: self.update_panel_value(panel, new_value)
+        
+        return panel
+        
+    def update_panel_value(self, panel, new_value):
+        """Update panel value with appropriate styling"""
+        panel.value_label.setText(str(new_value))
+        
+        # Update color based on content
+        if "No object detected" in str(new_value) or str(new_value) == "-":
+            color = "#10b981"  # Green
+        elif "Analyzing..." in str(new_value):
+            color = "#f59e0b"  # Amber
+        elif "High Value" in str(new_value):
+            color = "#10b981"  # Green
+        elif "Mixed" in str(new_value):
+            color = "#ef4444"  # Red
+        else:
+            color = "#10b981"  # Default green
+            
+        panel.value_label.setStyleSheet(f"""
+            QLabel {{
+                color: {color};
+                background-color: transparent;
+                border: none;
+                font-weight: 600;
+            }}
+        """)
 
     def setup_camera_layout(self):
         """Setup the camera layout based on current state"""
@@ -276,12 +382,9 @@ class MainView(QWidget):
             # Then delete the layout itself
             QWidget().setLayout(self.camera_container.layout())
         
-        # Set smaller fixed size for camera widgets
-        #CAMERA_WIDTH = 300  # Reduced from 325
-        CAMERA_HEIGHT = 270  # Reduced from 260
-        LARGE_CAMERA_WIDTH = 600  # Reduced from 670 (2 * 280 + 20 spacing)
-        SINGLE_CAMERA_WIDTH = 680
-        SINGLE_CAMERA_HEIGHT= 520
+        # Calculate camera sizes based on container size
+        container_width = self.camera_container.width() - 40  # Account for padding
+        container_height = self.camera_container.height() - 40  # Account for padding
         
         # Create camera widgets if they don't exist
         if not hasattr(self, 'object_detection_camera'):
@@ -299,16 +402,21 @@ class MainView(QWidget):
         if self.is_two_camera_layout:
             # Two camera layout
             camera_layout = QVBoxLayout()
-            camera_layout.setSpacing(1)  # Reduced from 15 to 5
-            camera_layout.setContentsMargins(0, 0, 0, 0)
+            camera_layout.setSpacing(15)
+            camera_layout.setContentsMargins(20, 20, 20, 20)
             
             # Set sizes for two camera layout
-            self.object_detection_camera.setFixedSize(LARGE_CAMERA_WIDTH, CAMERA_HEIGHT)
-            self.residue_scan_camera.setFixedSize(LARGE_CAMERA_WIDTH, CAMERA_HEIGHT)
+            camera_height = (container_height - 15) // 2  # Account for spacing
+            self.object_detection_camera.setMinimumSize(container_width, camera_height)
+            self.residue_scan_camera.setMinimumSize(container_width, camera_height)
+            
+            # Set size policies
+            self.object_detection_camera.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+            self.residue_scan_camera.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             
             # Stack cameras vertically
-            camera_layout.addWidget(self.object_detection_camera, alignment=Qt.AlignCenter)
-            camera_layout.addWidget(self.residue_scan_camera, alignment=Qt.AlignCenter)
+            camera_layout.addWidget(self.object_detection_camera)
+            camera_layout.addWidget(self.residue_scan_camera)
             
             # Set the new layout
             self.camera_container.setLayout(camera_layout)
@@ -324,23 +432,24 @@ class MainView(QWidget):
         else:
             # Single camera layout
             camera_layout = QVBoxLayout()
-            camera_layout.setSpacing(5)  # Reduced from 15 to 5
-            camera_layout.setContentsMargins(0, 0, 0, 0)
+            camera_layout.setSpacing(5)
+            camera_layout.setContentsMargins(20, 20, 20, 20)
             
             # Set size for single camera layout
-            self.object_detection_camera.setFixedSize(SINGLE_CAMERA_WIDTH, SINGLE_CAMERA_HEIGHT)
+            self.object_detection_camera.setMinimumSize(container_width, container_height)
+            self.object_detection_camera.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
             
             # Add only the main camera
-            camera_layout.addWidget(self.object_detection_camera, alignment=Qt.AlignCenter)
+            camera_layout.addWidget(self.object_detection_camera)
             
             # Set the new layout
             self.camera_container.setLayout(camera_layout)
             
-            # Hide other camera
-            self.residue_scan_camera.hide()
+            # Show only the main camera
             self.object_detection_camera.show()
+            self.residue_scan_camera.hide()
             
-            # Start only the main camera if detection is active
+            # Start the main camera if detection is active
             if is_detecting:
                 self.object_detection_camera.start_camera()
         
@@ -357,16 +466,21 @@ class MainView(QWidget):
                 self.start_btn.setIcon(self.camera_off_icon)
                 self.start_btn.setStyleSheet("""
                     QPushButton {
-                        background-color: #6b7280;
+                        background-color: #374151;
                         color: white;
-                        border: none;
-                        border-radius: 25px;
-                        font-family: 'Fredoka';
-                        font-size: 16px;
+                        border: 1px solid #4b5563;
+                        border-radius: 30px;
+                        font-family: 'Inter';
+                        font-size: 14px;
                         font-weight: 600;
                     }
                     QPushButton:hover {
                         background-color: #4b5563;
+                        border: 1px solid #10b981;
+                    }
+                    QPushButton:pressed {
+                        background-color: #374151;
+                        border: 1px solid #10b981;
                     }
                     QPushButton QIcon {
                         color: white;
@@ -473,19 +587,19 @@ class MainView(QWidget):
                     QPushButton {
                         background-color: #dc2626;
                         color: white;
-                        border: none;
-                        border-radius: 25px;
-                        font-family: 'Fredoka';
-                        font-size: 18px;
+                        border: 1px solid #ef4444;
+                        border-radius: 30px;
+                        font-family: 'Inter';
+                        font-size: 14px;
                         font-weight: 600;
                     }
                     QPushButton:hover {
                         background-color: #b91c1c;
-                        border: 2px solid #14e7a1;
+                        border: 1px solid #10b981;
                     }
                     QPushButton:pressed {
                         background-color: #991b1b;
-                        border: 2px solid #14e7a1;
+                        border: 1px solid #10b981;
                     }
                     QPushButton QIcon {
                         color: white;
@@ -520,21 +634,21 @@ class MainView(QWidget):
                 self.start_btn.setIcon(self.camera_off_icon)
                 self.start_btn.setStyleSheet("""
                     QPushButton {
-                        background-color: #6b7280;
+                        background-color: #374151;
                         color: white;
-                        border: none;
-                        border-radius: 25px;
-                        font-family: 'Fredoka';
-                        font-size: 16px;
+                        border: 1px solid #4b5563;
+                        border-radius: 30px;
+                        font-family: 'Inter';
+                        font-size: 14px;
                         font-weight: 600;
                     }
                     QPushButton:hover {
-                        background-color: #4338ca;
-                        border: 2px solid #14e7a1;
+                        background-color: #4b5563;
+                        border: 1px solid #10b981;
                     }
                     QPushButton:pressed {
-                        background-color: #2563eb;
-                        border: 2px solid #14e7a1;
+                        background-color: #374151;
+                        border: 1px solid #10b981;
                     }
                     QPushButton QIcon {
                         color: white;

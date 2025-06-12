@@ -36,7 +36,7 @@ class AppClient:
         # Mapping of classifications to servo commands
         self.classification_to_command = {
             'High Value': 'high',
-            'Mix': 'mix',
+            'Mixed': 'mix',
             'Low Value': 'low',
             'Reject': 'reject'
         }

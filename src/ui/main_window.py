@@ -17,37 +17,29 @@ class MainWindow(QMainWindow):
         self.initUI()
         
     def initUI(self):
-        self.setFixedSize(1280, 720)  # Set the window size
-        self.center()         
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #111827;
-                font-family: 'Fredoka';
-            }
-            QWidget {
-                font-family: 'Fredoka';
-            }
-        """)
-        self.setWindowTitle("ECOGRADE")
+        """Initialize the user interface"""
+        # Set window properties
+        self.setWindowTitle('EcoGrade')
+        self.setWindowIcon(QIcon('src/ui/assets/LOGO.ico'))
         
-        # Create central widget
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
+        # Set minimum and maximum window size
+        self.setMinimumSize(1400, 900)  # Minimum size to ensure UI elements are visible
+        self.setMaximumSize(1920, 1080)  # Maximum size to prevent excessive scaling
         
-        # Main layout
-        main_layout = QHBoxLayout(central_widget)
-        main_layout.setSpacing(0)
+        # Create main layout
+        main_layout = QHBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
         
-        # Create sidebar (hidden for front page)
+        # Create sidebar
         self.sidebar = self.create_sidebar()
+        main_layout.addWidget(self.sidebar)
         
-        # Create main content area
+        # Create content stack
         self.content_stack = QStackedWidget()
         self.content_stack.setStyleSheet("""
             QStackedWidget {
-                background-color: #111827;
-                font-family: 'Fredoka';
+                background-color: #0f172a;
             }
         """)
         self.create_front_page()
@@ -55,27 +47,44 @@ class MainWindow(QMainWindow):
         self.create_analytics_view()
         self.create_about_view()
         
-        # Add widgets to main layout
-        main_layout.addWidget(self.sidebar)
-        main_layout.addWidget(self.content_stack, 1)
+        main_layout.addWidget(self.content_stack)
         
-        # Initially hide sidebar and show front page
+        # Set main layout
+        central_widget = QWidget()
+        central_widget.setLayout(main_layout)
+        self.setCentralWidget(central_widget)
+        
+        # Center the window on screen
+        self.center()
+        
+        # Start in maximized state
+        self.showMaximized()
+        self.setWindowState(Qt.WindowMaximized)
+        
+        # Show front page and hide sidebar initially
         self.show_front_page()
         
     def center(self):
-        # Get the screen geometry
-        qr = self.frameGeometry()
-        # Get the center point of the screen
-        cp = QDesktopWidget().availableGeometry().center()
-        # Move the rectangle's center to the screen center
-        qr.moveCenter(cp)
-        # Move the top-left point of the window to match the centered rectangle
-        self.move(qr.topLeft())
+        # Center the window when not maximized
+        if not self.isMaximized():
+            qr = self.frameGeometry()
+            cp = QDesktopWidget().availableGeometry().center()
+            qr.moveCenter(cp)
+            self.move(qr.topLeft())
         
     def create_sidebar(self):
         sidebar = QWidget()
         sidebar.setFixedWidth(80)
-        sidebar.setStyleSheet("QWidget { background-color: #1f2937; border-radius: 15px; }")
+        sidebar.setStyleSheet("""
+            QWidget { 
+                background-color: #1f2937; 
+                border-top-right-radius: 15px; 
+                border-bottom-left-radius: 0px;
+                border-top-left-radius: 0px;
+                border-bottom-right-radius: 15px;
+                border: 1px solid #475569;
+            }
+        """)
         
         sidebar_layout = QVBoxLayout(sidebar)
         sidebar_layout.setSpacing(10)
@@ -190,4 +199,3 @@ def main():
     window = MainWindow()
     window.show()
     sys.exit(app.exec_())
-

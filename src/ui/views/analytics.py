@@ -12,67 +12,65 @@ from pathlib import Path
 import math
 from src.ui.widgets.chart_widgets import PieChartWidget, BarChartWidget
 
-# Enhanced color scheme with better contrast
+# Color scheme
 COLORS = {
-    'background': '#0f172a',      # Darker background for better contrast
-    'panel': '#1e293b',           # Lighter panels for better separation
-    'text': '#f8fafc',            # Brighter white for better readability
-    'text_secondary': '#cbd5e1',  # Secondary text color
-    'accent': '#22c55e',          # Brighter green for High Value
-    'warning': '#f59e0b',         # Better yellow for Rejects
-    'error': '#ef4444',           # Red for Mixed
-    'border': '#475569',          # More visible borders
-    'grid': '#334155',            # More visible grid lines
-    'hover': '#3b82f6'            # Blue for hovers
+    'background': '#111827',
+    'panel': '#2D2D2D',
+    'text': '#FFFFFF',
+    'accent': '#4CAF50',  # Green for High Value
+    'warning': '#FFC107',  # Yellow for Rejects
+    'error': '#F44336',   # Red for Mixed
+    'border': '#3D3D3D',
+    'grid': '#3D3D3D'
 }
 
 # Pie chart color mapping
 PIE_LABELS = ["High Value", "Low Value", "Rejects", "Mixed"]
-PIE_COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444']  # Green, Blue, Yellow, Red
+PIE_COLORS = ['#4CAF50', '#2196F3', '#FFC107', '#F44336']  # Green, Blue, Yellow, Red
 PIE_COLOR_MAP = dict(zip(PIE_LABELS, PIE_COLORS))
-PIE_OTHER_COLOR = '#ef4444'  # Red for Mixed
+PIE_OTHER_COLOR = '#F44336'  # Red for Mixed
 
 # Bar chart color mapping for waste types
 BAR_TYPE_COLORS = {
-    'PET Bottle': '#3b82f6',
-    'HDPE Plastic': '#22c55e',
-    'PP': '#f59e0b',
-    'LDPE': '#a855f7',
-    'Tin Can': '#6b7280',
-    'Mixed': '#ef4444',
+    'PET Bottle': '#42a5f5',
+    'HDPE Plastic': '#66bb6a',
+    'PP': '#ffa726',
+    'LDPE': '#ab47bc',
+    'Tin Can': '#bdbdbd',
+    'Mixed': '#ff7043',
+    
 }
 
 def get_bar_color(waste_type):
-    return BAR_TYPE_COLORS.get(waste_type, '#6b7280')
+    return BAR_TYPE_COLORS.get(waste_type, '#bdbdbd')
 
 class Panel(QFrame):
     def __init__(self, title, parent=None):
         super().__init__(parent)
-        self.setStyleSheet(f"""
-            QFrame {{
-                background-color: {COLORS['panel']};
-                border-radius: 12px;
-                border: 1px solid {COLORS['border']};
-            }}
+        self.setStyleSheet("""
+            QFrame {
+                background-color: #111827;
+                border-radius: 10px;
+                border: 1px solid #16324b;
+            }
         """)
         
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 20, 20, 20)  # Increased margins for better spacing
-        layout.setSpacing(15)  # Increased spacing
+        layout.setContentsMargins(15, 15, 15, 15)
+        layout.setSpacing(10)
         
-        # Enhanced title label
+        # Title label with centered text and adjusted styling
         title_label = QLabel(title)
-        title_label.setStyleSheet(f"""
-            QLabel {{
-                color: {COLORS['text']};
+        title_label.setStyleSheet("""
+            QLabel {
+                color: white;
                 font-family: 'Fredoka';
-                font-size: 16px;
-                font-weight: 700;
+                font-size: 14px;
+                font-weight: 600;
                 background-color: transparent;
                 border: none;
-                padding: 5px 0px;
-                letter-spacing: 0.5px;
-            }}
+                padding: 2px;
+            }
         """)
         title_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(title_label)
@@ -81,7 +79,7 @@ class Panel(QFrame):
         self.content_widget = QWidget()
         self.content_layout = QVBoxLayout(self.content_widget)
         self.content_layout.setContentsMargins(0, 0, 0, 0)
-        self.content_layout.setSpacing(12)
+        self.content_layout.setSpacing(10)
         layout.addWidget(self.content_widget)
 
 class AnalyticsWidget(QWidget):
@@ -96,133 +94,100 @@ class AnalyticsWidget(QWidget):
         main_layout.setSpacing(0)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Enhanced background
-        self.setStyleSheet(f"background-color: {COLORS['background']};")
+        # Set background color for analytics view and scroll area
+        self.setStyleSheet("background-color: #111827;")
 
         # Add a scroll area for the analytics content
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scroll.setStyleSheet(f"""
-            QScrollArea {{ 
-                border: none; 
-                background: {COLORS['background']}; 
-            }}
-            QScrollBar:vertical {{
-                background: {COLORS['background']};
-                width: 10px;
-                border-radius: 5px;
-            }}
-            QScrollBar::handle:vertical {{
-                background: {COLORS['border']};
-                border-radius: 5px;
-                min-height: 20px;
-            }}
-            QScrollBar::handle:vertical:hover {{
-                background: {COLORS['hover']};
-            }}
-        """)
+        scroll.setStyleSheet("QScrollArea { border: none; background: #111827; }")
 
         content_widget = QWidget()
-        content_widget.setStyleSheet(f"background-color: {COLORS['background']};")
+        content_widget.setStyleSheet("background-color: #111827;")
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setSpacing(20)  # Increased spacing between sections
-        content_layout.setContentsMargins(20, 20, 20, 20)  # Better margins
+        content_layout.setSpacing(20)  # Increased spacing
+        content_layout.setContentsMargins(30, 30, 30, 30)  # Increased margins for full screen
 
         # Top section (Table and Pie Chart)
         top_layout = QHBoxLayout()
-        top_layout.setSpacing(20)  # Increased spacing between panels
+        top_layout.setSpacing(20)  # Increased spacing
         
-        # Enhanced Table Panel
+        # Table Panel
         table_panel = Panel("Recent Detections")
-        table_panel.content_layout.setContentsMargins(5, 0, 5, 0)
+        table_panel.content_layout.setContentsMargins(0, 0, 0, 0)
         table_panel.content_layout.setSpacing(0)
         
-        # Enhanced filter controls
+        # Add filter controls
         filter_layout = QHBoxLayout()
-        filter_layout.setSpacing(15)  # Better spacing between controls
-        filter_layout.setContentsMargins(20, 15, 20, 15)
+        filter_layout.setSpacing(15)  # Increased spacing
+        filter_layout.setContentsMargins(20, 20, 20, 20)  # Increased margins
         
-        # Enhanced filter labels and dropdowns
-        filter_style = f"""
-            QLabel {{
-                color: {COLORS['text']};
-                font-family: 'Fredoka';
-                font-size: 13px;
-                font-weight: 600;
-                padding: 0;
-                border: none;
-                margin-right: 5px;
-            }}
-        """
+        # Time filter dropdown
+        time_filter_label = QLabel("Time Range:")
+        time_filter_label.setFont(QFont('Fredoka', 12))
+        time_filter_label.setStyleSheet("color: white; padding: 0; border: none;")
+        self.time_filter = QComboBox()
+        self.time_filter.addItems(["Past Hour", "Past Day", "Past Week", "Past Month"])
         
-        # Enhanced dropdown style
-        dropdown_style = f"""
-            QComboBox {{
-                background-color: {COLORS['background']};
-                color: {COLORS['text']};
-                border: 2px solid {COLORS['border']};
-                border-radius: 8px;
-                padding: 8px 12px;
+        # Style the dropdowns with Fredoka Medium
+        dropdown_style = """
+            QComboBox {
+                background-color: #111827;
+                color: white;
+                border: 1px solid #16324b;
+                border-radius: 5px;
+                padding: 5px 10px;
                 font-family: 'Fredoka';
                 font-size: 12px;
-                font-weight: 500;
-                min-width: 100px;
-            }}
-            QComboBox:hover {{
-                border: 2px solid {COLORS['hover']};
-            }}
-            QComboBox:focus {{
-                border: 2px solid {COLORS['accent']};
-            }}
-            QComboBox::drop-down {{
+                min-width: 120px;
+            }
+            QComboBox:hover {
+                border: 1px solid #3ac194;
+            }
+            QComboBox::drop-down {
                 border: none;
-                padding-right: 8px;
-            }}
-            QComboBox::down-arrow {{
+            }
+            QComboBox::down-arrow {
                 image: url(resources/icons/dropdown.png);
                 width: 12px;
                 height: 12px;
-            }}
-            QComboBox QAbstractItemView {{
-                background-color: {COLORS['panel']};
-                color: {COLORS['text']};
-                border: 2px solid {COLORS['border']};
-                border-radius: 8px;
-                selection-background-color: {COLORS['hover']};
+            }
+            QComboBox QAbstractItemView {
+                background-color: #111827;
+                color: white;
+                border: 1px solid #16324b;
+                selection-background-color: #1e3a8a;
                 font-family: 'Fredoka';
                 font-size: 12px;
-                padding: 5px;
-            }}
+            }
         """
         
-        # Time filter
-        time_filter_label = QLabel("Time Range:")
-        time_filter_label.setStyleSheet(filter_style)
-        self.time_filter = QComboBox()
-        self.time_filter.addItems(["Past Hour", "Past Day", "Past Week", "Past Month"])
         self.time_filter.setStyleSheet(dropdown_style)
         
-        # Type filter
+        # Add dropdown filters with Fredoka Medium
         type_filter_label = QLabel("Type:")
-        type_filter_label.setStyleSheet(filter_style)
+        type_filter_label.setFont(QFont('Fredoka', 12))
+        type_filter_label.setStyleSheet("color: white; padding: 0; border: none;")
         self.type_filter = QComboBox()
         self.type_filter.addItem("All Types")
         self.type_filter.addItems([
             "PET Bottle", "HDPE Plastic", "PP", "LDPE", 
             "Tin Can", "UHT Box"
         ])
-        self.type_filter.setStyleSheet(dropdown_style)
         
-        # Classification filter
         classification_filter_label = QLabel("Classification:")
-        classification_filter_label.setStyleSheet(filter_style)
+        classification_filter_label.setFont(QFont('Fredoka', 12))
+        classification_filter_label.setStyleSheet("color: white; padding: 0; border: none;")
         self.classification_filter = QComboBox()
         self.classification_filter.addItem("All Classifications")
         self.classification_filter.addItems([
             "High Value", "Low Value", "Rejects", "Mixed Trash"
         ])
+        
+        # Apply dropdown style to all comboboxes
+        self.type_filter.setStyleSheet(dropdown_style)
         self.classification_filter.setStyleSheet(dropdown_style)
         
         # Connect dropdown signals
@@ -230,68 +195,64 @@ class AnalyticsWidget(QWidget):
         self.type_filter.currentTextChanged.connect(self.update_data)
         self.classification_filter.currentTextChanged.connect(self.update_data)
         
-        # Add filters to layout
+        # Add dropdowns to filter layout
         filter_layout.addWidget(time_filter_label)
         filter_layout.addWidget(self.time_filter)
         filter_layout.addWidget(type_filter_label)
         filter_layout.addWidget(self.type_filter)
         filter_layout.addWidget(classification_filter_label)
         filter_layout.addWidget(self.classification_filter)
+        
+        # Add stretch to push export button to the right
         filter_layout.addStretch()
         
-        # Enhanced action buttons
-        button_style = f"""
-            QPushButton {{
-                background-color: {COLORS['background']};
-                border: 2px solid {COLORS['border']};
-                border-radius: 8px;
-                padding: 8px;
-                min-width: 35px;
-                min-height: 35px;
-            }}
-            QPushButton:hover {{
-                border: 2px solid {COLORS['hover']};
-                background-color: {COLORS['panel']};
-            }}
-        """
+        # Add spacing before export button
+        filter_layout.addSpacing(20)
         
-        delete_button_style = f"""
-            QPushButton {{
-                background-color: {COLORS['background']};
-                border: 2px solid {COLORS['border']};
-                border-radius: 8px;
-                padding: 8px;
-                min-width: 35px;
-                min-height: 35px;
-            }}
-            QPushButton:hover {{
-                border: 2px solid {COLORS['error']};
-                background-color: rgba(239, 68, 68, 0.1);
-            }}
-        """
-        
-        # Delete button
+        # Add delete button
         delete_btn = QPushButton()
         delete_btn.setIcon(QIcon("src/ui/assets/trash-2.svg"))
-        delete_btn.setIconSize(QSize(16, 16))
-        delete_btn.setStyleSheet(delete_button_style)
-        delete_btn.setToolTip("Delete selected items")
+        delete_btn.setIconSize(QSize(20, 20))  # Increased icon size
+        delete_btn.setFixedSize(36, 36)  # Increased button size
+        delete_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #111827;
+                border: 1px solid #16324b;
+                border-radius: 5px;
+                padding: 8px;
+            }
+            QPushButton:hover {
+                background-color: #ef4444;
+            }
+        """)
         delete_btn.clicked.connect(self.delete_selected)
         filter_layout.addWidget(delete_btn)
         
-        # Export button
+        # Add export button
         export_btn = QPushButton()
         export_btn.setIcon(QIcon("src/ui/assets/download.svg"))
-        export_btn.setIconSize(QSize(16, 16))
-        export_btn.setStyleSheet(button_style)
-        export_btn.setToolTip("Export to Excel")
+        export_btn.setIconSize(QSize(20, 20))  # Increased icon size
+        export_btn.setFixedSize(36, 36)  # Increased button size
+        export_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #111827;
+                border: 1px solid #16324b;
+                border-radius: 5px;
+                padding: 8px;
+            }
+            QPushButton:hover {
+                border: 1px solid #3ac194;
+            }
+        """)
         export_btn.clicked.connect(self.export_to_excel)
         filter_layout.addWidget(export_btn)
+        
+        filter_layout.addStretch()
         
         # Add filter layout to panel
         table_panel.content_layout.addLayout(filter_layout)
         
-        # Enhanced table
+        # Create table
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels([
@@ -299,9 +260,9 @@ class AnalyticsWidget(QWidget):
         ])
         
         # Set column widths
-        self.table.setColumnWidth(0, 60)   # ID column
-        self.table.setColumnWidth(1, 120)  # Type column
-        self.table.setColumnWidth(2, 90)   # Confidence column
+        self.table.setColumnWidth(0, 60)  # Increased ID column width
+        self.table.setColumnWidth(1, 150)  # Increased Type column width
+        self.table.setColumnWidth(2, 100)  # Increased Confidence column width
         
         # Set header and column behavior
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
@@ -311,82 +272,71 @@ class AnalyticsWidget(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch)
         
-        # Enhanced table properties
+        # Set table properties
         self.table.setShowGrid(True)
         self.table.setGridStyle(Qt.SolidLine)
         self.table.setFrameShape(QFrame.NoFrame)
         self.table.setFrameShadow(QFrame.Plain)
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.table.setMaximumHeight(320)  # Slightly taller for better readability
-        self.table.setAlternatingRowColors(True)
+        self.table.setMinimumHeight(400)  # Increased height for full screen
+        self.table.setMaximumHeight(600)  # Increased maximum height
         
-        # Enhanced table style
-        self.table.setStyleSheet(f"""
-            QTableWidget {{
-                background-color: {COLORS['background']};
-                alternate-background-color: {COLORS['panel']};
-                color: {COLORS['text']};
-                gridline-color: {COLORS['grid']};
-                border: 2px solid {COLORS['border']};
-                border-radius: 8px;
+        # Set table style
+        self.table.setStyleSheet("""
+            QTableWidget {
+                background-color: #111827;
+                color: white;
+                gridline-color: #16324b;
+                border: 1px solid #16324b;
+                border-radius: 0px;
                 font-family: 'Fredoka';
                 font-size: 13px;
                 outline: none;
-                selection-background-color: {COLORS['hover']};
-            }}
-            QHeaderView::section {{
-                background-color: {COLORS['panel']};
-                color: {COLORS['text']};
-                padding: 10px 5px;
-                border: none;
-                border-bottom: 2px solid {COLORS['border']};
-                border-right: 1px solid {COLORS['grid']};
+            }
+            QHeaderView::section {
+                background-color: #111827;
+                color: white;
+                padding: 8px;
+                border: 1px solid #16324b;
+                border-top: 1px solid #16324b;
+                border-bottom: 1px solid #16324b;
                 font-family: 'Fredoka';
                 font-size: 12px;
-                font-weight: 700;
-                letter-spacing: 0.5px;
-            }}
-            QTableWidget::item {{
-                padding: 8px 5px;
-                border-bottom: 1px solid {COLORS['grid']};
-                border-right: 1px solid {COLORS['grid']};
-            }}
-            QTableWidget::item:selected {{
-                background-color: {COLORS['hover']};
-                color: white;
-            }}
-            QHeaderView {{
+                font-weight: bold;
+            }
+            QTableWidget::item {
+                padding: 8px;
+                border-bottom: 1px solid #16324b;
+            }
+            QHeaderView {
                 border: none;
-            }}
-            QScrollBar:vertical {{
+                border-bottom: 1px solid #16324b;
+            }
+            QScrollBar:vertical {
                 border: none;
-                background: {COLORS['background']};
+                background: #111827;
                 width: 10px;
                 margin: 0px;
-                border-radius: 5px;
-            }}
-            QScrollBar::handle:vertical {{
-                background: {COLORS['border']};
-                border-radius: 5px;
+            }
+            QScrollBar::handle:vertical {
+                background: #16324b;
                 min-height: 20px;
-            }}
-            QScrollBar::handle:vertical:hover {{
-                background: {COLORS['hover']};
-            }}
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+                border-radius: 4px;
+            }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px;
-            }}
-            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {{
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
                 background: none;
-            }}
+            }
         """)
         table_panel.content_layout.addWidget(self.table)
         
-        # Enhanced Pie Chart Panel
+        # Pie Chart Panel
         pie_panel = Panel("Waste Distribution")  
         self.pie_chart = PieChartWidget()
-        self.pie_chart.setMinimumSize(280, 280)  # Slightly larger for better visibility
+        self.pie_chart.setMinimumSize(350, 350)  # Increased size for full screen
         self.pie_chart.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         pie_panel.content_layout.addWidget(self.pie_chart)
         
@@ -394,13 +344,13 @@ class AnalyticsWidget(QWidget):
         top_layout.addWidget(table_panel, 2)
         top_layout.addWidget(pie_panel, 1)
         
-        # Enhanced Bar Chart Panel
+        # Bar Chart Panel
         bar_panel = Panel("Waste Generation by Type")
         
-        # Add bar chart with better sizing
+        # Add bar chart with adjusted size
         self.bar_chart = BarChartWidget()
-        self.bar_chart.setMinimumHeight(280)  # Better height for readability
-        self.bar_chart.setMaximumHeight(320)
+        self.bar_chart.setMinimumHeight(350)  # Increased height for full screen
+        self.bar_chart.setMaximumHeight(400)  # Increased maximum height
         bar_panel.content_layout.addWidget(self.bar_chart)
         
         # Add layouts to main layout
@@ -412,18 +362,12 @@ class AnalyticsWidget(QWidget):
         # Schedule initial updates after UI is set up for smoother startup
         QTimer.singleShot(0, self.update_data)
         QTimer.singleShot(0, self.update_charts)
-        
+
     def setup_timer(self):
-        # Update every second
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_data)
-        self.timer.start(1000)  # 1 second interval
-        
-    def update_time_filter(self, time_filter):
-        # Update all charts with the new time filter
-        self.bar_chart.set_time_filter(time_filter)
-        self.update_charts()
-        
+        self.timer.start(5000)  # Update every 5 seconds
+
     def update_data(self):
         """Update both table and charts with current filter settings"""
         self.update_table()
@@ -491,13 +435,13 @@ class AnalyticsWidget(QWidget):
                 item.setTextAlignment(Qt.AlignCenter)
                 self.table.setItem(i, 3, item)
                 
-                # Classification with enhanced colors
+                # Classification
                 item = QTableWidgetItem(str(row['classification']))
                 item.setTextAlignment(Qt.AlignCenter)
                 if row['classification'] == 'High Value':
                     item.setForeground(QColor(COLORS['accent']))  # Green
                 elif row['classification'] == 'Low Value':
-                    item.setForeground(QColor('#3b82f6'))  # Blue
+                    item.setForeground(QColor('#2196F3'))  # Blue
                 elif row['classification'] == 'Rejects':
                     item.setForeground(QColor(COLORS['warning']))  # Yellow
                 elif row['classification'] == 'Mixed':
@@ -650,31 +594,24 @@ class AnalyticsWidget(QWidget):
                 msg.setIcon(QMessageBox.Information)
                 msg.setText(f"Data exported successfully to {filename}")
                 msg.setWindowTitle("Export Successful")
-                msg.setStyleSheet(f"""
-                    QMessageBox {{
-                        background-color: {COLORS['panel']};
-                        color: {COLORS['text']};
-                        border: 2px solid {COLORS['border']};
-                        border-radius: 10px;
-                    }}
-                    QMessageBox QLabel {{
-                        color: {COLORS['text']};
-                        font-family: 'Fredoka';
-                        font-size: 13px;
-                    }}
-                    QPushButton {{
-                        background-color: {COLORS['background']};
-                        color: {COLORS['text']};
-                        border: 2px solid {COLORS['border']};
-                        padding: 8px 20px;
-                        border-radius: 8px;
-                        font-family: 'Fredoka';
-                        font-weight: 600;
-                        min-width: 80px;
-                    }}
-                    QPushButton:hover {{
-                        border: 2px solid {COLORS['accent']};
-                    }}
+                msg.setStyleSheet("""
+                    QMessageBox {
+                        background-color: #111827;
+                        color: white;
+                    }
+                    QMessageBox QLabel {
+                        color: white;
+                    }
+                    QPushButton {
+                        background-color: #16324b;
+                        color: white;
+                        border: none;
+                        padding: 5px 15px;
+                        border-radius: 5px;
+                    }
+                    QPushButton:hover {
+                        background-color: #1e3a8a;
+                    }
                 """)
                 msg.exec_()
             
@@ -683,98 +620,23 @@ class AnalyticsWidget(QWidget):
             msg.setIcon(QMessageBox.Critical)
             msg.setText(f"Error exporting data: {str(e)}")
             msg.setWindowTitle("Export Error")
-            msg.setStyleSheet(f"""
-                QMessageBox {{
-                    background-color: {COLORS['panel']};
-                    color: {COLORS['text']};
-                    border: 2px solid {COLORS['error']};
-                    border-radius: 10px;
-                }}
-                QMessageBox QLabel {{
-                    color: {COLORS['text']};
-                    font-family: 'Fredoka';
-                    font-size: 13px;
-                }}
-                QPushButton {{
-                    background-color: {COLORS['background']};
-                    color: {COLORS['text']};
-                    border: 2px solid {COLORS['border']};
-                    padding: 8px 20px;
-                    border-radius: 8px;
-                    font-family: 'Fredoka';
-                    font-weight: 600;
-                    min-width: 80px;
-                }}
-                QPushButton:hover {{
-                    border: 2px solid {COLORS['error']};
-                }}
+            msg.setStyleSheet("""
+                QMessageBox {
+                    background-color: #111827;
+                    color: white;
+                }
+                QMessageBox QLabel {
+                    color: white;
+                }
+                QPushButton {
+                    background-color: #16324b;
+                    color: white;
+                    border: none;
+                    padding: 5px 15px;
+                    border-radius: 5px;
+                }
+                QPushButton:hover {
+                    background-color: #1e3a8a;
+                }
             """)
             msg.exec_() 
-
-    def delete_selected(self):
-        """Delete selected rows from the database."""
-        selected_rows = self.table.selectedItems()
-        if not selected_rows:
-            QMessageBox.warning(self, "No Selection", "Please select rows to delete.")
-            return
-        
-        # Get unique row indices
-        row_indices = set(item.row() for item in selected_rows)
-        
-        # Enhanced confirmation dialog
-        msg = QMessageBox()
-        msg.setIcon(QMessageBox.Warning)
-        msg.setText(f"Are you sure you want to delete {len(row_indices)} selected items?")
-        msg.setInformativeText("This action cannot be undone.")
-        msg.setWindowTitle("Confirm Deletion")
-        msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
-        msg.setStyleSheet(f"""
-            QMessageBox {{
-                background-color: {COLORS['panel']};
-                color: {COLORS['text']};
-                border: 2px solid {COLORS['border']};
-                border-radius: 10px;
-            }}
-            QMessageBox QLabel {{
-                color: {COLORS['text']};
-                font-family: 'Fredoka';
-                font-size: 13px;
-            }}
-            QPushButton {{
-                background-color: {COLORS['background']};
-                color: {COLORS['text']};
-                border: 2px solid {COLORS['border']};
-                border-radius: 8px;
-                padding: 8px 20px;
-                font-family: 'Fredoka';
-                font-weight: 600;
-                min-width: 80px;
-            }}
-            QPushButton:hover {{
-                border: 2px solid {COLORS['error']};
-            }}
-        """)
-        
-        if msg.exec_() == QMessageBox.Yes:
-            try:
-                conn = sqlite3.connect('data/measurements.db')
-                cursor = conn.cursor()
-                
-                # Get IDs of selected rows
-                selected_ids = []
-                for row in row_indices:
-                    id_item = self.table.item(row, 0)
-                    if id_item:
-                        selected_ids.append(id_item.text())  # Keep as string
-                
-                # Delete from database using string IDs
-                placeholders = ','.join(['?'] * len(selected_ids))
-                cursor.execute(f"DELETE FROM detections WHERE id IN ({placeholders})", selected_ids)
-                conn.commit()
-                conn.close()
-                
-                # Update the table
-                self.update_data()
-                
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to delete items: {str(e)}") 

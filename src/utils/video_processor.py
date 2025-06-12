@@ -283,8 +283,8 @@ class VideoProcessor:
                                     3: 'PP',
                                     4: 'LDPE',
                                     5: 'HDPE Plastic',
-                                    6: 'Tin-Steel Can',
-                                    7: 'Mixed'
+                                    6: 'Tin Can',
+                                    7: 'UHT Box'
                                 }
                                 
                                 if conf > 0.5:
@@ -516,7 +516,7 @@ class VideoProcessor:
             'HDPE': 'HDPE',
             'LDPE': 'LDPE',
             'PP': 'PP',
-            'Tin-Steel Can': 'Tin-Steel Can',
+            'Tin Can': 'Tin Can',
             'UHT Box': 'UHT Box'
         }
         return waste_types.get(class_name, 'Unknown')
