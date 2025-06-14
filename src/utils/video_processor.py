@@ -33,15 +33,44 @@ class VideoProcessor:
         # Try to use GPU if available, otherwise fall back to CPU
         try:
             self.session = ort.InferenceSession(model_path, self.session_options, 
-                                              providers=['CPUExecutionProvider'])  # Simplified providers
+                                              providers=['CPUExecutionProvider'])
         except Exception as e:
             print(f"Error loading ONNX model: {str(e)}")
             raise
-        
+
         # Get model metadata
         self.input_name = self.session.get_inputs()[0].name
         self.output_names = [output.name for output in self.session.get_outputs()]
-        self.input_shape = self.session.get_inputs()[0].shape
+        print(f"Model input name: {self.input_name}")
+        print(f"Model output names: {self.output_names}")
+        
+        # Initialize processing parameters
+        self.processing_size = (640, 640)  # YOLO input size
+        self.min_confidence = 0.1  # Lowered from 0.5 to 0.1
+        self.min_detection_area = 100  # Minimum area for valid detection
+        self.max_detection_area = 100000  # Maximum area for valid detection
+        self.frame_skip = 2  # Process every 3rd frame
+        self._frame_skip_counter = 0
+        
+        # Initialize tracking variables
+        self.object_trackers = {}
+        self.finalized_ids = set()
+        self.finalized_times = {}
+        self.detection_start_time = None
+        self.current_contamination_score = 0
+        self.animation_time = 0
+        self.last_classification = None
+        
+        # Initialize frame processing
+        self.frame_queue = Queue(maxsize=10)
+        self.processing = False
+        self.running = True
+        self.latest_result = None
+        
+        # Start processing thread
+        self.processing_thread = threading.Thread(target=self._process_frames)
+        self.processing_thread.daemon = True
+        self.processing_thread.start()
         
         # Initialize other attributes
         self.is_running = False
@@ -79,33 +108,21 @@ class VideoProcessor:
         self.max_tracking_lost = 30
         self.last_valid_bbox = None
         self.smoothing_factor = 0.7
-        self.min_confidence = 0.5
         self.min_iou = 0.4
         self.bbox_history = []
         self.max_history = 5
         self.cap = None
-        self.frame_queue = Queue(maxsize=2)
         self.running = False
         self.processing = False
         self.last_boxes = []
-        self.detection_start_time = None
         self.criteria_met = False
-        self.last_classification = '-'
-        self.current_contamination_score = 0
         self.background = None
         self.background_captured = False
-        self.animation_time = 0
         self.zoom_factor = 1.0
         self.initialized = True
-        self.latest_result = None
-        self.object_trackers = {}
         self.next_object_id = 1
-        self.finalized_ids = set()
-        self._frame_skip_counter = 0
         self.crop_factor = 0.9
-        self.frame_size = (480, 640)
         self.finalized_timeout = 5.0
-        self.finalized_times = {}
         self.min_detection_area = 10000
         self.max_detection_area = 300000
         self.processing_size = (640, 640)
@@ -213,8 +230,11 @@ class VideoProcessor:
             # - 8400 is number of predictions per class
             predictions = outputs[0]  # Shape: (1, 12, 8400)
             
-            # Debug output shape
+            # Debug output shape and values
             print(f"Predictions shape: {predictions.shape}")
+            print(f"Min prediction value: {np.min(predictions):.4f}")
+            print(f"Max prediction value: {np.max(predictions):.4f}")
+            print(f"Mean prediction value: {np.mean(predictions):.4f}")
             
             # Convert predictions to boxes and scores
             boxes = []
@@ -235,6 +255,11 @@ class VideoProcessor:
                 # Get max score and class
                 max_score = np.max(cell_scores)
                 class_id = np.argmax(cell_scores)
+                
+                # Debug cell scores
+                if i < 5:  # Print first 5 cells for debugging
+                    print(f"Cell {i} scores: {cell_scores}")
+                    print(f"Max score: {max_score:.4f}, Class: {class_id}")
                 
                 # Skip if confidence is too low
                 if max_score < self.min_confidence:
@@ -268,6 +293,7 @@ class VideoProcessor:
             print(f"Number of raw detections: {len(boxes)}")
             if len(boxes) > 0:
                 print(f"First detection score: {scores[0]:.4f}")
+                print(f"First detection class: {class_ids[0]}")
             
             # Apply non-maximum suppression
             if len(boxes) > 0:
