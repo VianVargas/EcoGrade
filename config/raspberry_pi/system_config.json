@@ -1,15 +1,26 @@
 {
   "system": {
     "memory": {
-      "gpu_memory": 128,
-      "max_swap_size": 2048,
-      "swap_swappiness": 10
+      "gpu_memory": 512,
+      "max_swap_size": 8192,
+      "swap_swappiness": 10,
+      "vm_swappiness": 10,
+      "vm_dirty_ratio": 10,
+      "vm_dirty_background_ratio": 5
     },
     "performance": {
       "cpu_governor": "performance",
-      "gpu_freq": 500,
-      "arm_freq": 1500,
-      "over_voltage": 2
+      "gpu_freq": 1000,
+      "arm_freq": 2400,
+      "over_voltage": 0,
+      "force_turbo": 1,
+      "temp_limit": 85,
+      "gpu_mem": 512,
+      "io": {
+        "read_ahead_kb": 4096,
+        "nr_requests": 128,
+        "scheduler": "mq-deadline"
+      }
     }
   },
   "application": {
@@ -17,17 +28,24 @@
       "device": "cpu",
       "threads": 4,
       "batch_size": 1,
-      "half_precision": true
+      "half_precision": true,
+      "use_mmap": true,
+      "use_tensorrt": false,
+      "use_openvino": true,
+      "num_streams": 2
     },
     "processing": {
-      "max_queue_size": 2,
-      "worker_threads": 2,
-      "io_threads": 1
+      "max_queue_size": 8,
+      "worker_threads": 4,
+      "io_threads": 2,
+      "use_thread_pool": true,
+      "thread_priority": "high"
     },
     "logging": {
       "level": "INFO",
-      "max_size": 10,
-      "backup_count": 3
+      "max_size": 20,
+      "backup_count": 5,
+      "use_async": true
     }
   },
   "network": {
@@ -45,12 +63,26 @@
     "camera": {
       "use_mmap": true,
       "use_v4l2": true,
-      "buffer_count": 4
+      "buffer_count": 16,
+      "use_dma": true,
+      "use_mmal": true,
+      "use_gpu_mem": true,
+      "use_zero_copy": true
     },
     "display": {
       "use_drm": true,
       "vsync": true,
-      "double_buffer": true
+      "double_buffer": true,
+      "use_gpu": true,
+      "use_kms": true,
+      "use_egl": true,
+      "use_gbm": true
+    },
+    "memory": {
+      "use_huge_pages": true,
+      "use_transparent_huge_pages": true,
+      "use_compaction": true,
+      "use_ksm": true
     }
   }
 }

@@ -6,7 +6,14 @@
       "min_angle": 0,
       "max_angle": 180,
       "default_position": 90,
-      "sort_position": 45
+      "sort_position": 45,
+      "move_speed": 30,
+      "acceleration": 5,
+      "safety": {
+        "max_continuous_operation": 5,
+        "cooldown_time": 2,
+        "emergency_stop": true
+      }
     },
     "metal": {
       "pin": 18,
@@ -14,7 +21,14 @@
       "min_angle": 0,
       "max_angle": 180,
       "default_position": 90,
-      "sort_position": 135
+      "sort_position": 135,
+      "move_speed": 30,
+      "acceleration": 5,
+      "safety": {
+        "max_continuous_operation": 5,
+        "cooldown_time": 2,
+        "emergency_stop": true
+      }
     },
     "paper": {
       "pin": 27,
@@ -22,40 +36,88 @@
       "min_angle": 0,
       "max_angle": 180,
       "default_position": 90,
-      "sort_position": 0
+      "sort_position": 0,
+      "move_speed": 30,
+      "acceleration": 5,
+      "safety": {
+        "max_continuous_operation": 5,
+        "cooldown_time": 2,
+        "emergency_stop": true
+      }
     }
   },
   "led_indicators": {
     "status": {
       "pin": 22,
-      "active_high": true
+      "active_high": true,
+      "blink_pattern": {
+        "normal": [1000, 1000],
+        "warning": [500, 500],
+        "error": [200, 200]
+      }
     },
     "error": {
       "pin": 23,
-      "active_high": true
+      "active_high": true,
+      "blink_pattern": {
+        "normal": [0, 0],
+        "warning": [500, 500],
+        "error": [200, 200]
+      }
     },
     "detection": {
       "pin": 24,
-      "active_high": true
+      "active_high": true,
+      "blink_pattern": {
+        "normal": [0, 0],
+        "detecting": [100, 100],
+        "detected": [500, 0]
+      }
     }
   },
   "buttons": {
     "emergency_stop": {
       "pin": 25,
       "pull_up_down": "up",
-      "active_low": true
+      "active_low": true,
+      "debounce_time": 50,
+      "action": "immediate_stop"
     },
     "manual_override": {
       "pin": 26,
       "pull_up_down": "up",
-      "active_low": true
+      "active_low": true,
+      "debounce_time": 50,
+      "action": "toggle_manual_mode"
     }
   },
   "sensors": {
     "proximity": {
       "pin": 4,
       "trigger_pin": 5,
-      "echo_pin": 6
+      "echo_pin": 6,
+      "max_distance": 100,
+      "min_distance": 2,
+      "timeout": 0.1
+    }
+  },
+  "control": {
+    "direct_control": true,
+    "use_hardware_pwm": true,
+    "pwm_chip": 0,
+    "pwm_channel": 0,
+    "update_frequency": 50,
+    "safety": {
+      "max_continuous_operation": 300,
+      "cooldown_time": 60,
+      "emergency_stop_enabled": true,
+      "position_limits": true,
+      "speed_limits": true
+    },
+    "feedback": {
+      "position_feedback": true,
+      "current_monitoring": true,
+      "temperature_monitoring": true
     }
   }
 }

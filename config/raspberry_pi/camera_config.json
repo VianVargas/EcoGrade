@@ -2,39 +2,71 @@
   "camera": {
     "type": "raspberry_pi",
     "resolution": {
-      "width": 640,
-      "height": 480
+      "width": 1920,
+      "height": 1080
     },
-    "fps": 30,
+    "fps": 60,
     "exposure": {
       "mode": "auto",
-      "value": -6
+      "value": -4,
+      "auto_exposure_priority": 0.8
     },
     "gain": 100,
-    "buffer_size": 1,
+    "buffer_size": 8,
     "auto_exposure": true,
     "processing": {
       "resize_factor": 0.5,
-      "blur_kernel": [5, 5],
-      "contrast_alpha": 1.2,
-      "contrast_beta": 10
+      "blur_kernel": [3, 3],
+      "contrast_alpha": 1.1,
+      "contrast_beta": 5,
+      "use_gpu": true,
+      "use_mmal": true,
+      "use_zero_copy": true,
+      "use_gpu_mem": true,
+      "use_dma": true
+    },
+    "stabilization": {
+      "enabled": true,
+      "mode": "digital",
+      "strength": 0.7
     }
   },
   "optimization": {
-    "frame_skip": 2,
-    "detection_interval": 0.1,
+    "frame_skip": 1,
+    "detection_interval": 0.033,
     "min_confidence": 0.5,
     "min_detection_area": 10000,
     "max_detection_area": 300000,
     "processing_size": {
-      "width": 320,
-      "height": 240
-    }
+      "width": 960,
+      "height": 540
+    },
+    "use_dma": true,
+    "use_mmap": true,
+    "use_mmal": true,
+    "use_gpu_mem": true,
+    "use_zero_copy": true,
+    "use_thread_pool": true,
+    "num_streams": 2,
+    "use_async_io": true
   },
   "tracking": {
     "max_tracking_lost": 30,
-    "smoothing_factor": 0.7,
+    "smoothing_factor": 0.8,
     "min_iou": 0.4,
-    "max_history": 5
+    "max_history": 5,
+    "use_gpu": true,
+    "use_kalman": true,
+    "use_optical_flow": true,
+    "use_multi_object": true
+  },
+  "hardware": {
+    "use_gpu": true,
+    "use_dma": true,
+    "use_mmal": true,
+    "use_zero_copy": true,
+    "use_gpu_mem": true,
+    "use_thread_pool": true,
+    "num_streams": 2
   }
 }
