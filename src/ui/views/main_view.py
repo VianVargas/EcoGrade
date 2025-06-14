@@ -537,7 +537,7 @@ class MainView(QWidget):
         # Store the last detection result
         self.last_detection_result = result
         
-        # Update UI widgets
+        # Update UI widgets first
         if hasattr(self, 'waste_type_widget'):
             self.waste_type_widget.update_value(result.get('waste_type', '-'))
             
@@ -553,7 +553,27 @@ class MainView(QWidget):
             classification = result.get('classification', '-')
             self.classification_widget.update_value(classification)
             
-        # Update servo control based on classification
+        # Force immediate UI update
+        QApplication.processEvents()
+        
+        # Update detection history
+        if hasattr(self, 'detection_history'):
+            timestamp = datetime.now().strftime("%H:%M:%S")
+            history_text = f"[{timestamp}] {result.get('waste_type', '-')} - {result.get('classification', '-')}"
+            self.detection_history.append(history_text)
+            
+            # Keep only last 10 entries
+            if len(self.detection_history) > 10:
+                self.detection_history.pop(0)
+                
+            # Update history display
+            if hasattr(self, 'history_text'):
+                self.history_text.setPlainText('\n'.join(self.detection_history))
+                
+        # Force immediate UI update again
+        QApplication.processEvents()
+        
+        # Process servo command after UI updates
         if hasattr(self, 'servo_controller') and self.servo_controller:
             classification = result.get('classification', '-')
             # Map classification to servo commands
@@ -575,26 +595,6 @@ class MainView(QWidget):
                     logging.info(f"Servo command {servo_command} executed successfully")
                 except Exception as e:
                     logging.error(f"Error executing servo command {servo_command}: {e}")
-                
-        # Force immediate UI update
-        QApplication.processEvents()
-        
-        # Update detection history
-        if hasattr(self, 'detection_history'):
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            history_text = f"[{timestamp}] {result.get('waste_type', '-')} - {result.get('classification', '-')}"
-            self.detection_history.append(history_text)
-            
-            # Keep only last 10 entries
-            if len(self.detection_history) > 10:
-                self.detection_history.pop(0)
-                
-            # Update history display
-            if hasattr(self, 'history_text'):
-                self.history_text.setPlainText('\n'.join(self.detection_history))
-                
-        # Force immediate UI update again
-        QApplication.processEvents()
 
     def _show_no_object_detected(self):
         self.waste_type_widget.update_value('No object detected')
