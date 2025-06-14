@@ -248,12 +248,16 @@ class VideoProcessor:
             # Reshape predictions to (12, 8400)
             predictions = predictions[0]
             
+            # Normalize scores using softmax
+            exp_preds = np.exp(predictions - np.max(predictions, axis=0, keepdims=True))
+            normalized_scores = exp_preds / np.sum(exp_preds, axis=0, keepdims=True)
+            
             # Get max scores and class IDs for each cell
-            max_scores = np.max(predictions, axis=0)  # Shape: (8400,)
-            class_ids = np.argmax(predictions, axis=0)  # Shape: (8400,)
+            max_scores = np.max(normalized_scores, axis=0)  # Shape: (8400,)
+            class_ids = np.argmax(normalized_scores, axis=0)  # Shape: (8400,)
             
             # Debug scores
-            print(f"Max scores - Min: {np.min(max_scores):.4f}, Max: {np.max(max_scores):.4f}, Mean: {np.mean(max_scores):.4f}")
+            print(f"Normalized scores - Min: {np.min(max_scores):.4f}, Max: {np.max(max_scores):.4f}, Mean: {np.mean(max_scores):.4f}")
             
             # Get indices of cells with high confidence
             high_conf_indices = np.where(max_scores > self.min_confidence)[0]
