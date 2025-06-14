@@ -278,7 +278,7 @@ class MainView(QWidget):
         panel.setStyleSheet("""
             QWidget {
                 background-color: #1e293b;
-                border-radius: 12px;
+                border-radius: 18px;
                 border: 1px solid #334155;
                 padding: 0px;
             }
@@ -290,7 +290,7 @@ class MainView(QWidget):
         
         # Title label
         title_label = QLabel(title)
-        title_label.setFont(QFont('Inter', 11, QFont.Normal))
+        title_label.setFont(QFont('Fredoka', 16, QFont.Normal))
         title_label.setStyleSheet("""
             QLabel {
                 color: #94a3b8;
@@ -311,6 +311,10 @@ class MainView(QWidget):
             color = "#f59e0b"  # Amber for analyzing
         elif "High Value" in value:
             color = "#10b981"  # Green for high value
+        elif "Low Value" in value:
+            color = "#f59e0b"  # Amber for low value
+        elif "Rejected" in value:
+            color = "#ef4444"  # Red for rejected
         elif "Mixed" in value:
             color = "#ef4444"  # Red for mixed
         else:
@@ -343,11 +347,15 @@ class MainView(QWidget):
         if "No object detected" in str(new_value) or str(new_value) == "-":
             color = "#10b981"  # Green
         elif "Analyzing..." in str(new_value):
-            color = "#f59e0b"  # Amber
+            color = "#f59e0b"  # Yellow
         elif "High Value" in str(new_value):
             color = "#10b981"  # Green
+        elif "Low Value" in str(new_value):
+            color = "#3b82f6"  # Blue for low value
+        elif "Rejected" in str(new_value):
+            color = "#f59e0b"  # Yellow for rejected
         elif "Mixed" in str(new_value):
-            color = "#ef4444"  # Red
+            color = "#ef4444"  # Red for mixed
         else:
             color = "#10b981"  # Default green
             
@@ -357,6 +365,7 @@ class MainView(QWidget):
                 background-color: transparent;
                 border: none;
                 font-weight: 600;
+                font-size: 24px;
             }}
         """)
 
@@ -405,8 +414,8 @@ class MainView(QWidget):
             camera_layout.setContentsMargins(20, 20, 20, 20)
             
             # Set sizes for two camera horizontal layout
-            camera_width = 340  # Half of 680
-            camera_height = 400
+            camera_width = 510  # Half of 680
+            camera_height = 600
             self.object_detection_camera.setFixedSize(camera_width, camera_height)
             self.residue_scan_camera.setFixedSize(camera_width, camera_height)
             
@@ -433,10 +442,10 @@ class MainView(QWidget):
             # Single camera layout
             camera_layout = QVBoxLayout()
             camera_layout.setSpacing(5)
-            camera_layout.setContentsMargins(70, 20, 30, 20)
+            camera_layout.setContentsMargins(100, 20, 20, 20)
             
             # Set size for single camera layout
-            self.object_detection_camera.setFixedSize(680, 440)  # Set specific size for main camera
+            self.object_detection_camera.setFixedSize(1000, 700)  # Set specific size for main camera
             self.object_detection_camera.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # Prevent resizing
             
             # Add only the main camera

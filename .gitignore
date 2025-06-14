@@ -2,27 +2,60 @@
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Distribution / packaging
-dist/
+*.so
+.Python
 build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
 *.egg-info/
+.installed.cfg
+*.egg
 
-# Virtual environment
+# Virtual Environment
 venv/
+ENV/
 env/
 
 # IDE
-.vscode/
 .idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
 
 # Logs
-*.log
 logs/
+*.log
 
 # Database
 *.db
 *.sqlite3
+
+# Model files
+models/*.pt
+
+# Exports
+exports/
+*.xlsx
+
+# Temporary files
+*.tmp
+*.temp
+.qodo/
+
+# Build files
+*.spec
+build/
+dist/
 
 # OS generated files
 .DS_Store
@@ -34,7 +67,6 @@ ehthumbs.db
 Thumbs.db
 
 # Project specific
-exports/
 ecograde.db
 app.log
 main_view.log 

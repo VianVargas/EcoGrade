@@ -14,7 +14,7 @@ from src.ui.widgets.chart_widgets import PieChartWidget, BarChartWidget
 
 # Enhanced color scheme with better contrast
 COLORS = {
-    'background': '#0f172a',      # Darker background for better contrast
+    'background': '#111827',      # Darker background for better contrast
     'panel': '#1e293b',           # Lighter panels for better separation
     'text': '#f8fafc',            # Brighter white for better readability
     'text_secondary': '#cbd5e1',  # Secondary text color
@@ -27,8 +27,8 @@ COLORS = {
 }
 
 # Pie chart color mapping
-PIE_LABELS = ["High Value", "Low Value", "Rejects", "Mixed"]
-PIE_COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444']  # Green, Blue, Yellow, Red
+PIE_LABELS = ["High Value", "Low Value", "Rejected", "Mixed"]
+PIE_COLORS = ['#22c55e', '#3b82f6', '#ef4444', '#f59e0b']  # Green, Blue, Yellow, Red
 PIE_COLOR_MAP = dict(zip(PIE_LABELS, PIE_COLORS))
 PIE_OTHER_COLOR = '#ef4444'  # Red for Mixed
 
@@ -66,7 +66,7 @@ class Panel(QFrame):
             QLabel {{
                 color: {COLORS['text']};
                 font-family: 'Fredoka';
-                font-size: 16px;
+                font-size: 20px;
                 font-weight: 700;
                 background-color: transparent;
                 border: none;
@@ -221,7 +221,7 @@ class AnalyticsWidget(QWidget):
         self.classification_filter = QComboBox()
         self.classification_filter.addItem("All Classifications")
         self.classification_filter.addItems([
-            "High Value", "Low Value", "Rejects", "Mixed Trash"
+            "High Value", "Low Value", "Rejected", "Mixed Trash"
         ])
         self.classification_filter.setStyleSheet(dropdown_style)
         
@@ -498,7 +498,7 @@ class AnalyticsWidget(QWidget):
                     item.setForeground(QColor(COLORS['accent']))  # Green
                 elif row['classification'] == 'Low Value':
                     item.setForeground(QColor('#3b82f6'))  # Blue
-                elif row['classification'] == 'Rejects':
+                elif row['classification'] == 'Rejected':
                     item.setForeground(QColor(COLORS['warning']))  # Yellow
                 elif row['classification'] == 'Mixed':
                     item.setForeground(QColor(COLORS['error']))  # Red

@@ -19,7 +19,7 @@ class PieChartWidget(FigureCanvas):
         self.color_map = {
             'High Value': '#4CAF50',   # Green
             'Low Value': '#2196F3',    # Blue
-            'Rejects': '#FFC107',      # Yellow
+            'Rejected': '#FFC107',      # Yellow
             'Mixed': '#F44336'         # Red
         }
         self.legend = None
@@ -53,7 +53,7 @@ class PieChartWidget(FigureCanvas):
         )
         for autotext in autotexts:
             autotext.set_color('white')
-            autotext.set_fontsize(8)
+            autotext.set_fontsize(10)
         for spine in self.ax.spines.values():
             spine.set_visible(True)
             spine.set_color('#16324b')
@@ -73,6 +73,7 @@ class PieChartWidget(FigureCanvas):
             )
         for text in self.legend.get_texts():
                 text.set_color('white')
+                text.set_fontsize(12)
         
         # Set fixed aspect ratio and adjust layout
         self.ax.set_aspect('equal')
