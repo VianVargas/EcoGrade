@@ -216,39 +216,29 @@ class VideoProcessor:
             # Debug output shape
             print(f"Predictions shape: {predictions.shape}")
             
-            # Apply softmax to get probabilities
-            exp_preds = np.exp(predictions[0] - np.max(predictions[0], axis=0, keepdims=True))
-            class_probs = exp_preds / np.sum(exp_preds, axis=0, keepdims=True)
+            # Convert predictions to boxes and scores
+            boxes = []
+            scores = []
+            class_ids = []
             
-            # Get the class with highest confidence for each prediction
-            max_scores = np.max(class_probs, axis=0)  # Shape: (8400,)
-            class_ids = np.argmax(class_probs, axis=0)  # Shape: (8400,)
-            
-            # Debug confidence scores
-            print(f"Max confidence: {np.max(max_scores):.4f}")
-            print(f"Mean confidence: {np.mean(max_scores):.4f}")
-            
-            # Filter predictions based on confidence
-            mask = max_scores > self.min_confidence
-            filtered_scores = max_scores[mask]
-            filtered_class_ids = class_ids[mask]
-            
-            # Debug filtered predictions
-            print(f"Number of detections after confidence filter: {len(filtered_scores)}")
-            
-            # Get corresponding indices
-            indices = np.where(mask)[0]
-            
-            # Convert indices to box coordinates
-            # Each index corresponds to a grid cell
+            # Process each grid cell
             grid_size = 80  # 640/8 = 80 (assuming 8x8 grid)
             cell_size = 8   # 640/80 = 8
             
-            detections = []
-            for idx, score, cls_id in zip(indices, filtered_scores, filtered_class_ids):
-                # Convert index to grid coordinates
-                grid_x = idx % grid_size
-                grid_y = idx // grid_size
+            for i in range(8400):
+                grid_x = i % grid_size
+                grid_y = i // grid_size
+                
+                # Get class scores for this cell
+                cell_scores = predictions[0, :, i]
+                
+                # Get max score and class
+                max_score = np.max(cell_scores)
+                class_id = np.argmax(cell_scores)
+                
+                # Skip if confidence is too low
+                if max_score < self.min_confidence:
+                    continue
                 
                 # Convert grid coordinates to pixel coordinates
                 x1 = grid_x * cell_size
@@ -270,14 +260,72 @@ class VideoProcessor:
                 if area < self.min_detection_area or area > self.max_detection_area:
                     continue
                 
+                boxes.append([x1, y1, x2, y2])
+                scores.append(float(max_score))
+                class_ids.append(int(class_id))
+            
+            # Debug raw detections
+            print(f"Number of raw detections: {len(boxes)}")
+            if len(boxes) > 0:
+                print(f"First detection score: {scores[0]:.4f}")
+            
+            # Apply non-maximum suppression
+            if len(boxes) > 0:
+                boxes = np.array(boxes)
+                scores = np.array(scores)
+                class_ids = np.array(class_ids)
+                
+                # Convert to [x1, y1, x2, y2] format
+                x1 = boxes[:, 0]
+                y1 = boxes[:, 1]
+                x2 = boxes[:, 2]
+                y2 = boxes[:, 3]
+                
+                # Calculate areas
+                areas = (x2 - x1) * (y2 - y1)
+                
+                # Sort by score
+                indices = np.argsort(scores)[::-1]
+                
+                keep = []
+                while indices.size > 0:
+                    # Pick the highest scoring box
+                    i = indices[0]
+                    keep.append(i)
+                    
+                    # Get coordinates of intersection
+                    xx1 = np.maximum(x1[i], x1[indices[1:]])
+                    yy1 = np.maximum(y1[i], y1[indices[1:]])
+                    xx2 = np.minimum(x2[i], x2[indices[1:]])
+                    yy2 = np.minimum(y2[i], y2[indices[1:]])
+                    
+                    # Calculate intersection area
+                    w = np.maximum(0, xx2 - xx1)
+                    h = np.maximum(0, yy2 - yy1)
+                    intersection = w * h
+                    
+                    # Calculate IoU
+                    iou = intersection / (areas[i] + areas[indices[1:]] - intersection)
+                    
+                    # Remove boxes with IoU > threshold
+                    indices = indices[1:][iou < 0.5]
+                
+                # Keep only the boxes that passed NMS
+                boxes = boxes[keep]
+                scores = scores[keep]
+                class_ids = class_ids[keep]
+            
+            # Convert to detection format
+            detections = []
+            for box, score, cls_id in zip(boxes, scores, class_ids):
                 detections.append({
-                    'box': [x1, y1, x2, y2],
+                    'box': box.tolist(),
                     'score': float(score),
                     'class_id': int(cls_id)
                 })
             
             # Debug final detections
-            print(f"Number of final detections: {len(detections)}")
+            print(f"Number of final detections after NMS: {len(detections)}")
             if len(detections) > 0:
                 print(f"First detection: {detections[0]}")
             
@@ -354,27 +402,148 @@ class VideoProcessor:
                         if detection_area < self.min_detection_area or detection_area > self.max_detection_area:
                             continue
                         
-                        # Draw detection box
-                        cv2.rectangle(model_output, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                        # Calculate centroid for tracking
+                        centroid = (int((x1 + x2) / 2), int((y1 + y2) / 2))
                         
-                        # Add label
-                        label = f"Class {cls_id}: {conf:.2f}"
-                        cv2.putText(model_output, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                        # Find matching object ID
+                        obj_id = None
+                        for existing_id, tracker in self.object_trackers.items():
+                            if existing_id in self.finalized_ids:
+                                continue
+                            prev_centroid = tracker['centroid']
+                            distance = math.hypot(centroid[0] - prev_centroid[0], centroid[1] - prev_centroid[1])
+                            if distance < 50:
+                                obj_id = existing_id
+                                break
+                        
+                        if obj_id is None:
+                            obj_id = generate_unique_id(self.object_trackers, self.finalized_ids)
+                            self.object_trackers[obj_id] = {
+                                'centroid': centroid,
+                                'timer': now,
+                                'state': 'analyzing',
+                                'result': None,
+                                'confidence': conf,
+                                'waste_type': None,
+                                'detection_count': 0,
+                                'last_update': now,
+                                'stable_count': 0
+                            }
+                        else:
+                            tracker = self.object_trackers[obj_id]
+                            prev_centroid = tracker['centroid']
+                            distance = math.hypot(centroid[0] - prev_centroid[0], centroid[1] - prev_centroid[1])
+                            
+                            if distance < 50:
+                                tracker['stable_count'] += 1
+                            else:
+                                tracker['stable_count'] = max(0, tracker['stable_count'] - 1)
+                            
+                            if conf > tracker.get('confidence', 0):
+                                tracker['confidence'] = conf
+                                tracker['centroid'] = centroid
+                                tracker['last_update'] = now
+                        
+                        detected_ids.add(obj_id)
+                        current_obj_id = obj_id
+                        
+                        if obj_id in self.finalized_ids:
+                            continue
+                        
+                        waste_types = {
+                            0: 'HDPE Plastic',
+                            1: 'PP',
+                            2: 'PET Bottle',
+                            3: 'PP',
+                            4: 'LDPE',
+                            5: 'HDPE Plastic',
+                            6: 'Tin Can',
+                            7: 'UHT Box'
+                        }
+                        
+                        if conf > 0.8: # Confidence level threshold
+                            current_waste_type = waste_types.get(cls_id, 'Unknown')
+                            if current_obj_id:
+                                self.object_trackers[current_obj_id]['waste_type'] = current_waste_type
+                        else:
+                            current_waste_type = 'Unknown'
                         
                         object_detected = True
-                        current_boxes.append(box)
+                        
+                        box_color = (0, 255, 0)
+                        cv2.rectangle(model_output, (x1, y1), (x2, y2), box_color, 4)
+                        
+                        # Add label with waste type and confidence
+                        label = f"{current_waste_type}: {conf:.2f}"
+                        cv2.putText(model_output, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, box_color, 2)
+                        
+                        # Create mask for residue detection
+                        object_mask[y1:y2, x1:x2] = 255
+                        
+                        cropped_frame = frame_cropped[y1:y2, x1:x2]
+                        if cropped_frame.size > 0:
+                            residue_detection_cropped, residue_mask = detect_residue_colors(cropped_frame)
+                            if residue_detection_cropped is not None:
+                                residue_detection[y1:y2, x1:x2] = residue_detection_cropped
+                                bbox_area = (x2 - x1) * (y2 - y1)
+                                contamination_score = calculate_residue_score(residue_mask, bbox_area)
+                                self.current_contamination_score = contamination_score
+                                mask_display = cv2.cvtColor(residue_mask, cv2.COLOR_GRAY2BGR)
                     
-                    # Rest of the processing code...
+                    # Update classification
+                    if object_detected:
+                        criteria_met = (current_waste_type != '-')
+                        current_time = time.time()
+                        
+                        if criteria_met:
+                            if self.detection_start_time is None:
+                                self.detection_start_time = current_time
+                                classification = 'Analyzing...'
+                            elif current_time - self.detection_start_time >= 0.3:  # Reduced from 0.5 to 0.3
+                                if current_obj_id and self.object_trackers[current_obj_id]['stable_count'] >= 3:  # Reduced from 5 to 3
+                                    classification = classify_output(current_waste_type, self.current_contamination_score)
+                                    result_data = {
+                                        'id': current_obj_id,
+                                        'waste_type': current_waste_type,
+                                        'contamination_score': self.current_contamination_score,
+                                        'classification': classification,
+                                        'confidence_level': conf if object_detected else 0
+                                    }
+                                    self.object_trackers[current_obj_id]['result'] = result_data
+                                    self.object_trackers[current_obj_id]['state'] = 'finalized'
+                                    self.finalized_ids.add(current_obj_id)
+                                    self.finalized_times[current_obj_id] = current_time
+                                    
+                                    # Emit result only if it's a valid classification
+                                    if classification not in ['Analyzing...', 'No object detected', 'Waiting for: Type', 'Unknown', '-']:
+                                        self.emit_detection_result(result_data)
+                                else:
+                                    classification = 'Analyzing...'
+                        else:
+                            missing_criteria = []
+                            if current_waste_type == '-':
+                                missing_criteria.append('Type')
+                            classification = f"Waiting for: {', '.join(missing_criteria)}"
+                            self.detection_start_time = None
+                    else:
+                        self.detection_start_time = None
+                        classification = 'No object detected'
                     
-                    # Update metrics and prepare result
+                    # Add animation to model output
+                    model_output = add_detection_animation(model_output, object_detected, current_boxes, 
+                                                        self.last_classification, self.animation_time)
+                    
+                    # Calculate final timings
                     timings['postprocess'] = (time.time() - postprocess_start) * 1000
                     timings['total'] = (time.time() - total_start_time) * 1000
                     
-                    # Calculate FPS and update metrics
+                    # Calculate FPS
                     fps = 1000 / timings['total'] if timings['total'] > 0 else 0
+                    
+                    # Store metrics
                     self.update_metrics(timings, fps, conf if object_detected else 0)
                     
-                    # Prepare result
+                    # Prepare result with all frames
                     result = {
                         'frames': {
                             'model': model_output,
