@@ -108,7 +108,7 @@ class VideoProcessor:
         self.finalized_times = {}
         self.min_detection_area = 10000
         self.max_detection_area = 300000
-        self.processing_size = (416, 416)
+        self.processing_size = (640, 640)
         
         # Cooldown timer for detections
         self.last_detection_times = {}
