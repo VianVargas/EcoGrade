@@ -135,6 +135,7 @@ class MainView(QWidget):
         
         # Left side - Camera feeds (matches analytics layout)
         self.left_widget = QWidget()
+        self.left_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.left_widget.setStyleSheet("""
             QWidget {
                 background-color: #1e293b;
@@ -146,9 +147,9 @@ class MainView(QWidget):
         self.left_layout.setContentsMargins(20, 20, 20, 20)
         self.left_layout.setSpacing(15)
         
-        # Create camera layout container with analytics styling //0f172a, border: 2px solid #10b981;
+        # Create camera layout container with analytics styling
         self.camera_container = QWidget()
-        self.camera_container.setMinimumSize(500, 400)  # Reduced from 700, 500
+        self.camera_container.setMinimumSize(400, 300)  # Reduced minimum size
         self.camera_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.camera_container.setStyleSheet("""
             QWidget {
@@ -265,8 +266,8 @@ class MainView(QWidget):
         right_layout.addStretch()
         
         # Set layout proportions to match analytics
-        layout.addWidget(self.left_widget, 3)  # Camera section takes more space
-        layout.addWidget(right_widget, 1)      # Results section
+        layout.addWidget(self.left_widget, 7)  # Camera section takes more space
+        layout.addWidget(right_widget, 3)      # Results section
         
         self.setLayout(layout)
 
@@ -442,7 +443,7 @@ class MainView(QWidget):
             # Single camera layout
             camera_layout = QVBoxLayout()
             camera_layout.setSpacing(5)
-            camera_layout.setContentsMargins(100, 20, 20, 20)
+            camera_layout.setContentsMargins(60, 20, 20, 20)
             
             # Set size for single camera layout
             self.object_detection_camera.setFixedSize(1000, 700)  # Set specific size for main camera

@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget, QDesktopWidget, QMessageBox, QApplication
+from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget, QDesktopWidget, QMessageBox, QApplication, QSizePolicy
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
 from .views.front_page import FrontPageWidget
@@ -23,8 +23,8 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon('src/ui/assets/LOGO.ico'))
         
         # Set minimum and maximum window size
-        self.setMinimumSize(1400, 900)  # Minimum size to ensure UI elements are visible
-        self.setMaximumSize(1920, 1080)  # Maximum size to prevent excessive scaling
+        self.setMinimumSize(1024, 768)  # Reduced minimum size for smaller screens
+        self.setMaximumSize(3840, 2160)  # Support for 4K displays
         
         # Create main layout
         main_layout = QHBoxLayout()
@@ -33,10 +33,12 @@ class MainWindow(QMainWindow):
         
         # Create sidebar
         self.sidebar = self.create_sidebar()
+        self.sidebar.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
         main_layout.addWidget(self.sidebar)
         
         # Create content stack
         self.content_stack = QStackedWidget()
+        self.content_stack.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.content_stack.setStyleSheet("""
             QStackedWidget {
                 background-color: #0f172a;
