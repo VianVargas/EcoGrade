@@ -174,37 +174,19 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """Handle window close event"""
         try:
-            # Show confirmation dialog
-            reply = QMessageBox.question(
-                self,
-                'Confirm Exit',
-                'Are you sure you want to exit?',
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.No
-            )
-            
-            if reply == QMessageBox.Yes:
-            # Stop the video processor
+            # Stop video processing
             if hasattr(self, 'main_view') and hasattr(self.main_view, 'video_processor'):
                 self.main_view.video_processor.stop()
+                self.main_view.video_processor.release_camera()
             
-            # Stop any running cameras
-            if hasattr(self, 'main_view'):
-                if hasattr(self.main_view, 'object_detection_camera'):
-                    self.main_view.object_detection_camera.stop_camera()
-                if hasattr(self.main_view, 'residue_scan_camera'):
-                    self.main_view.residue_scan_camera.stop_camera()
+            # Close database connection
+            if hasattr(self, 'db_connection'):
+                self.db_connection.close()
             
             # Accept the close event
             event.accept()
-            else:
-                # Reject the close event
-                event.ignore()
-            
         except Exception as e:
-            logging.error(f"Error during window close: {str(e)}")
-            logging.error(traceback.format_exc())
-            # Still accept the close event even if there's an error
+            print(f"Error during cleanup: {str(e)}")
             event.accept()
 
 def main():
