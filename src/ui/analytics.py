@@ -318,9 +318,7 @@ class AnalyticsWidget(QWidget):
         self.table.setFrameShadow(QFrame.Plain)
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.table.setMinimumHeight(200)  # Reduced minimum height
-        self.table.setMaximumHeight(400)  # Increased maximum height
+        self.table.setMaximumHeight(320)  # Slightly taller for better readability
         self.table.setAlternatingRowColors(True)
         
         # Enhanced table style

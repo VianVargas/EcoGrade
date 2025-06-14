@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QLabel, QGraphicsDropShadowEffect, QSizePolicy
+from PyQt5.QtWidgets import QLabel, QGraphicsDropShadowEffect
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QSize
 from PyQt5.QtGui import QImage, QPixmap, QColor, QFont
 import cv2
@@ -13,7 +13,6 @@ class CameraWidget(QLabel):
         super().__init__(parent)
         self.view_type = view_type
         self.setMinimumSize(200, 150)
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         
         # Create glow effect
         self.glow_effect = QGraphicsDropShadowEffect()
@@ -83,35 +82,62 @@ class CameraWidget(QLabel):
             self.update_timer.stop()
     
     def update_frame(self):
-        if self.camera_started and self.video_processor:
-            current_time = time.time()
-            if current_time - self.last_update_time >= self.update_interval / 1000.0:
-                result = self.video_processor.process_frame(self.view_type)
-                frame = result.get('frame')
+        if not self.camera_started:
+            self.setStyleSheet("""
+                QLabel {
+                    color: #3ac194;
+                    background-color: black;
+                    border-radius: 10px;
+                    border: 1px solid #3ac194;
+                }
+                QLabel:hover {
+                    border: 2px solid #14e7a1;
+                }
+            """)
+            self.setText(f"{self.view_type.replace('_', ' ').title()} View")
+            self.update()
+            return
 
-                if frame is not None and frame.size > 0:
-                    # Cache the frame buffer
-                    if self.frame_buffer is None or self.frame_buffer.shape != frame.shape:
-                        self.frame_buffer = np.zeros_like(frame)
-                    
-                    # Update frame buffer
-                    np.copyto(self.frame_buffer, frame)
-                    
-                    # Convert to QImage only when needed
-                    height, width, channel = self.frame_buffer.shape
-                    bytes_per_line = 3 * width
-                    q_image = QImage(self.frame_buffer.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
-                    
-                    # Scale pixmap efficiently to fit container while maintaining aspect ratio
-                    pixmap = QPixmap.fromImage(q_image)
-                    scaled_pixmap = pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                    self.setPixmap(scaled_pixmap)
-                    
-                    # Emit result
-                    self.result_updated.emit(result['data'])
-                    self.last_update_time = current_time
-                else:
-                    self.handle_empty_frame()
+        current_time = time.time() * 1000  # Convert to milliseconds
+        if current_time - self.last_update_time < self.update_interval:
+            return
+
+        if self.video_processor and self.video_processor.latest_result is not None:
+            result = self.video_processor.latest_result
+            frames = result['frames']
+            
+            # Select frame based on view type
+            if self.view_type == "object_detection":
+                frame = frames['model']
+            elif self.view_type == "residue_scan":
+                frame = frames['residue']
+            elif self.view_type == "mask":
+                frame = frames['mask']
+            else:
+                frame = frames['model']
+
+            if frame is not None and frame.size > 0:
+                # Cache the frame buffer
+                if self.frame_buffer is None or self.frame_buffer.shape != frame.shape:
+                    self.frame_buffer = np.zeros_like(frame)
+                
+                # Update frame buffer
+                np.copyto(self.frame_buffer, frame)
+                
+                # Convert to QImage only when needed
+                height, width, channel = self.frame_buffer.shape
+                bytes_per_line = 3 * width
+                q_image = QImage(self.frame_buffer.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
+                
+                # Scale pixmap efficiently to 80% of container size
+                pixmap = QPixmap.fromImage(q_image)
+                target_size = QSize(int(self.width() * 0.9), int(self.height() * 0.9))
+                scaled_pixmap = pixmap.scaled(target_size, Qt.KeepAspectRatio, Qt.FastTransformation)
+                self.setPixmap(scaled_pixmap)
+                
+                # Emit result
+                self.result_updated.emit(result['data'])
+                self.last_update_time = current_time
             else:
                 self.handle_empty_frame()
         else:
@@ -135,9 +161,7 @@ class CameraWidget(QLabel):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if self.pixmap():
-            # Scale the pixmap to fit the new size while maintaining aspect ratio
-            scaled_pixmap = self.pixmap().scaled(self.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            self.setPixmap(scaled_pixmap)
+            self.setPixmap(self.pixmap().scaled(self.size(), Qt.KeepAspectRatio, Qt.FastTransformation))
     
     def closeEvent(self, event):
         self.update_timer.stop()
