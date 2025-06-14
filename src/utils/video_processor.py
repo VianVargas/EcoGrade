@@ -1,14 +1,13 @@
 import cv2
-import torch
-import time
 import numpy as np
+import time
 import math
-from ultralytics import YOLO
 import threading
 from queue import Queue
 import os
 from datetime import datetime
 from pathlib import Path
+import onnxruntime as ort
 from src.utils.classification import classify_output
 from src.utils.residue import detect_residue_colors, calculate_residue_score
 from src.utils.database import store_measurement, generate_unique_id
@@ -25,12 +24,30 @@ class VideoProcessor:
             cls._instance = super(VideoProcessor, cls).__new__(cls)
         return cls._instance
     
-    def __init__(self, model_path='best.pt'):
-        self.model = YOLO(model_path, verbose=False)
+    def __init__(self, model_path='best.onnx'):
+        # Initialize ONNX Runtime session with optimizations
+        self.session_options = ort.SessionOptions()
+        self.session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        self.session_options.intra_op_num_threads = 4  # Optimize for Raspberry Pi 5's 4 cores
+        
+        # Try to use GPU if available, otherwise fall back to CPU
+        try:
+            self.session = ort.InferenceSession(model_path, self.session_options, 
+                                              providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider'])
+        except:
+            self.session = ort.InferenceSession(model_path, self.session_options, 
+                                              providers=['CPUExecutionProvider'])
+        
+        # Get model metadata
+        self.input_name = self.session.get_inputs()[0].name
+        self.output_names = [output.name for output in self.session.get_outputs()]
+        self.input_shape = self.session.get_inputs()[0].shape
+        
+        # Initialize other attributes
         self.is_running = False
         self.current_frame = None
         self.frame_lock = threading.Lock()
-        self.detection_interval = 0.1  # Reduced from 0.2 to 0.1 for faster response
+        self.detection_interval = 0.1
         self.last_detection_time = 0
         self.detection_callback = None
         self.camera = None
@@ -40,7 +57,7 @@ class VideoProcessor:
         self.detection_thread = None
         self.detection_running = False
         self.detection_lock = threading.Lock()
-        self.frame_skip = 1  # Reduced from 2 to 1 for more frequent processing
+        self.frame_skip = 1
         
         # Performance metrics
         self.performance_metrics = {
@@ -91,11 +108,11 @@ class VideoProcessor:
         self.finalized_times = {}
         self.min_detection_area = 10000
         self.max_detection_area = 300000
-        self.processing_size = (416, 416)  # Increased from (320, 240) for better accuracy
+        self.processing_size = (416, 416)
         
         # Cooldown timer for detections
         self.last_detection_times = {}
-        self.detection_cooldown = 1.0  # Reduced from 3.0 to 1.0 for faster response
+        self.detection_cooldown = 1.0
 
     def initialize(self):
         if not VideoProcessor._initialized:
@@ -117,12 +134,6 @@ class VideoProcessor:
                 print(f"Camera resolution set to: {actual_width}x{actual_height}")
             except Exception as e:
                 print(f"Warning: Could not set all camera properties: {str(e)}")
-            try:
-                self.model = YOLO("best.pt", verbose=False)
-                self.model.to('cpu')  # Force CPU usage
-                print("Model loaded successfully")
-            except Exception as e:
-                raise Exception(f"Failed to load YOLO model: {str(e)}")
             try:
                 ret, frame = VideoProcessor._camera.read()
                 if ret:
@@ -174,6 +185,52 @@ class VideoProcessor:
             except:
                 pass
 
+    def preprocess_frame(self, frame):
+        """Preprocess frame for ONNX model input"""
+        # Resize frame to model input size
+        frame_resized = cv2.resize(frame, self.processing_size)
+        
+        # Convert to RGB and normalize
+        frame_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
+        frame_normalized = frame_rgb.astype(np.float32) / 255.0
+        
+        # Add batch dimension and transpose to NCHW format
+        frame_nchw = np.transpose(frame_normalized, (2, 0, 1))
+        frame_batch = np.expand_dims(frame_nchw, axis=0)
+        
+        return frame_batch
+
+    def postprocess_output(self, outputs, original_frame):
+        """Process ONNX model outputs to get detections"""
+        # Extract outputs based on YOLO format
+        boxes = outputs[0]  # Assuming first output is boxes
+        scores = outputs[1]  # Assuming second output is scores
+        class_ids = outputs[2]  # Assuming third output is class IDs
+        
+        # Filter detections based on confidence
+        mask = scores > self.min_confidence
+        boxes = boxes[mask]
+        scores = scores[mask]
+        class_ids = class_ids[mask]
+        
+        # Convert boxes to original image coordinates
+        scale_x = original_frame.shape[1] / self.processing_size[0]
+        scale_y = original_frame.shape[0] / self.processing_size[1]
+        
+        detections = []
+        for box, score, class_id in zip(boxes, scores, class_ids):
+            x1, y1, x2, y2 = box
+            x1, x2 = x1 * scale_x, x2 * scale_x
+            y1, y2 = y1 * scale_y, y2 * scale_y
+            
+            detections.append({
+                'box': [int(x1), int(y1), int(x2), int(y2)],
+                'score': float(score),
+                'class_id': int(class_id)
+            })
+        
+        return detections
+
     def _process_frames(self):
         while self.running:
             if not self.processing and not self.frame_queue.empty():
@@ -186,7 +243,6 @@ class VideoProcessor:
                     
                     # Preprocessing timing
                     preprocess_start = time.time()
-                    # Apply crop factor
                     frame_cropped = self.apply_crop_factor(frame)
                     
                     # Skip frames to reduce processing load
@@ -195,20 +251,22 @@ class VideoProcessor:
                         continue
                     self._frame_skip_counter = 0
                     
-                    # Resize frame for processing
-                    frame_small = cv2.resize(frame_cropped, self.processing_size)
+                    # Preprocess frame for ONNX
+                    input_tensor = self.preprocess_frame(frame_cropped)
                     timings = {
                         'preprocess': (time.time() - preprocess_start) * 1000
                     }
                     
                     # Inference timing
                     inference_start = time.time()
-                    # Process frame with YOLO model
-                    results = self.model.predict(frame_small, conf=self.min_confidence, verbose=False)
+                    outputs = self.session.run(self.output_names, {self.input_name: input_tensor})
                     timings['inference'] = (time.time() - inference_start) * 1000
                     
                     # Post-processing timing
                     postprocess_start = time.time()
+                    
+                    # Process detections
+                    detections = self.postprocess_output(outputs, frame_cropped)
                     
                     # Initialize output frames
                     model_output = frame_cropped.copy()
@@ -224,127 +282,107 @@ class VideoProcessor:
                     
                     detected_ids = set()
                     now = time.time()
-
-                    # Reset finalized objects that have timed out
-                    for obj_id in list(self.finalized_ids):
-                        if obj_id in self.finalized_times:
-                            if now - self.finalized_times[obj_id] > self.finalized_timeout:
-                                self.finalized_ids.remove(obj_id)
-                                if obj_id in self.object_trackers:
-                                    del self.object_trackers[obj_id]
-                                if obj_id in self.finalized_times:
-                                    del self.finalized_times[obj_id]
                     
-                    # Process detections
-                    if results and len(results) > 0:
-                        result = results[0]
-                        if result.boxes and len(result.boxes) > 0:
-                            for box in result.boxes:
-                                conf = float(box.conf[0])
-                                cls_id = int(box.cls[0])
-                                
-                                # Scale coordinates back to original size
-                                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                                scale_x = frame_cropped.shape[1] / self.processing_size[0]
-                                scale_y = frame_cropped.shape[0] / self.processing_size[1]
-                                x1, x2 = int(x1 * scale_x), int(x2 * scale_x)
-                                y1, y2 = int(y1 * scale_y), int(y2 * scale_y)
-                                
-                                # Calculate detection area
-                                detection_area = (x2 - x1) * (y2 - y1)
-                                
-                                # Skip if detection area is too small or too large
-                                if detection_area < self.min_detection_area or detection_area > self.max_detection_area:
-                                    continue
-                                
-                                # Calculate centroid for tracking
-                                centroid = (int((x1 + x2) / 2), int((y1 + y2) / 2))
-                                
-                                # Find matching object ID
-                                obj_id = None
-                                for existing_id, tracker in self.object_trackers.items():
-                                    if existing_id in self.finalized_ids:
-                                        continue
-                                    prev_centroid = tracker['centroid']
-                                    distance = math.hypot(centroid[0] - prev_centroid[0], centroid[1] - prev_centroid[1])
-                                    if distance < 50:
-                                        obj_id = existing_id
-                                        break
-                                
-                                if obj_id is None:
-                                    obj_id = generate_unique_id(self.object_trackers, self.finalized_ids)
-                                    self.object_trackers[obj_id] = {
-                                        'centroid': centroid,
-                                        'timer': now,
-                                        'state': 'analyzing',
-                                        'result': None,
-                                        'confidence': conf,
-                                        'waste_type': None,
-                                        'detection_count': 0,
-                                        'last_update': now,
-                                        'stable_count': 0
-                                    }
-                                else:
-                                    tracker = self.object_trackers[obj_id]
-                                    prev_centroid = tracker['centroid']
-                                    distance = math.hypot(centroid[0] - prev_centroid[0], centroid[1] - prev_centroid[1])
-                                    
-                                    if distance < 50:
-                                        tracker['stable_count'] += 1
-                                    else:
-                                        tracker['stable_count'] = max(0, tracker['stable_count'] - 1)
-                                    
-                                    if conf > tracker.get('confidence', 0):
-                                        tracker['confidence'] = conf
-                                        tracker['centroid'] = centroid
-                                        tracker['last_update'] = now
-                                
-                                detected_ids.add(obj_id)
-                                current_obj_id = obj_id
-                                
-                                if obj_id in self.finalized_ids:
-                                    continue
-                                
-                                waste_types = {
-                                    0: 'HDPE Plastic',
-                                    1: 'PP',
-                                    2: 'PET Bottle',
-                                    3: 'PP',
-                                    4: 'LDPE',
-                                    5: 'HDPE Plastic',
-                                    6: 'Tin Can',
-                                    7: 'UHT Box'
-                                }
-                                
-                                if conf > 0.8: # Confidence level threshold
-                                    current_waste_type = waste_types.get(cls_id, 'Unknown')
-                                    if current_obj_id:
-                                        self.object_trackers[current_obj_id]['waste_type'] = current_waste_type
-                                else:
-                                    current_waste_type = 'Unknown'
-                                
-                                object_detected = True
-                                
-                                box_color = (0, 255, 0)
-                                cv2.rectangle(model_output, (x1, y1), (x2, y2), box_color, 4)
-                                
-                                if hasattr(box, 'masks') and box.masks is not None:
-                                    mask = box.masks.cpu().numpy()[0]
-                                    # Scale mask to original size
-                                    mask = cv2.resize(mask, (frame_cropped.shape[1], frame_cropped.shape[0]))
-                                    object_mask = (mask * 255).astype(np.uint8)
-                                else:
-                                    object_mask[y1:y2, x1:x2] = 255
-                                
-                                cropped_frame = frame_cropped[y1:y2, x1:x2]
-                                if cropped_frame.size > 0:
-                                    residue_detection_cropped, residue_mask = detect_residue_colors(cropped_frame)
-                                    if residue_detection_cropped is not None:
-                                        residue_detection[y1:y2, x1:x2] = residue_detection_cropped
-                                        bbox_area = (x2 - x1) * (y2 - y1)
-                                        contamination_score = calculate_residue_score(residue_mask, bbox_area)
-                                        self.current_contamination_score = contamination_score
-                                        mask_display = cv2.cvtColor(residue_mask, cv2.COLOR_GRAY2BGR)
+                    # Process each detection
+                    for detection in detections:
+                        box = detection['box']
+                        conf = detection['score']
+                        cls_id = detection['class_id']
+                        
+                        x1, y1, x2, y2 = box
+                        detection_area = (x2 - x1) * (y2 - y1)
+                        
+                        if detection_area < self.min_detection_area or detection_area > self.max_detection_area:
+                            continue
+                        
+                        # Calculate centroid for tracking
+                        centroid = (int((x1 + x2) / 2), int((y1 + y2) / 2))
+                        
+                        # Find matching object ID
+                        obj_id = None
+                        for existing_id, tracker in self.object_trackers.items():
+                            if existing_id in self.finalized_ids:
+                                continue
+                            prev_centroid = tracker['centroid']
+                            distance = math.hypot(centroid[0] - prev_centroid[0], centroid[1] - prev_centroid[1])
+                            if distance < 50:
+                                obj_id = existing_id
+                                break
+                        
+                        if obj_id is None:
+                            obj_id = generate_unique_id(self.object_trackers, self.finalized_ids)
+                            self.object_trackers[obj_id] = {
+                                'centroid': centroid,
+                                'timer': now,
+                                'state': 'analyzing',
+                                'result': None,
+                                'confidence': conf,
+                                'waste_type': None,
+                                'detection_count': 0,
+                                'last_update': now,
+                                'stable_count': 0
+                            }
+                        else:
+                            tracker = self.object_trackers[obj_id]
+                            prev_centroid = tracker['centroid']
+                            distance = math.hypot(centroid[0] - prev_centroid[0], centroid[1] - prev_centroid[1])
+                            
+                            if distance < 50:
+                                tracker['stable_count'] += 1
+                            else:
+                                tracker['stable_count'] = max(0, tracker['stable_count'] - 1)
+                            
+                            if conf > tracker.get('confidence', 0):
+                                tracker['confidence'] = conf
+                                tracker['centroid'] = centroid
+                                tracker['last_update'] = now
+                        
+                        detected_ids.add(obj_id)
+                        current_obj_id = obj_id
+                        
+                        if obj_id in self.finalized_ids:
+                            continue
+                        
+                        waste_types = {
+                            0: 'HDPE Plastic',
+                            1: 'PP',
+                            2: 'PET Bottle',
+                            3: 'PP',
+                            4: 'LDPE',
+                            5: 'HDPE Plastic',
+                            6: 'Tin Can',
+                            7: 'UHT Box'
+                        }
+                        
+                        if conf > 0.8: # Confidence level threshold
+                            current_waste_type = waste_types.get(cls_id, 'Unknown')
+                            if current_obj_id:
+                                self.object_trackers[current_obj_id]['waste_type'] = current_waste_type
+                        else:
+                            current_waste_type = 'Unknown'
+                        
+                        object_detected = True
+                        
+                        box_color = (0, 255, 0)
+                        cv2.rectangle(model_output, (x1, y1), (x2, y2), box_color, 4)
+                        
+                        if hasattr(box, 'masks') and box.masks is not None:
+                            mask = box.masks.cpu().numpy()[0]
+                            # Scale mask to original size
+                            mask = cv2.resize(mask, (frame_cropped.shape[1], frame_cropped.shape[0]))
+                            object_mask = (mask * 255).astype(np.uint8)
+                        else:
+                            object_mask[y1:y2, x1:x2] = 255
+                        
+                        cropped_frame = frame_cropped[y1:y2, x1:x2]
+                        if cropped_frame.size > 0:
+                            residue_detection_cropped, residue_mask = detect_residue_colors(cropped_frame)
+                            if residue_detection_cropped is not None:
+                                residue_detection[y1:y2, x1:x2] = residue_detection_cropped
+                                bbox_area = (x2 - x1) * (y2 - y1)
+                                contamination_score = calculate_residue_score(residue_mask, bbox_area)
+                                self.current_contamination_score = contamination_score
+                                mask_display = cv2.cvtColor(residue_mask, cv2.COLOR_GRAY2BGR)
                     
                     # Update classification
                     if object_detected:
@@ -397,48 +435,7 @@ class VideoProcessor:
                     fps = 1000 / timings['total'] if timings['total'] > 0 else 0
                     
                     # Store metrics
-                    self.performance_metrics['fps'].append(fps)
-                    self.performance_metrics['preprocess'].append(timings['preprocess'])
-                    self.performance_metrics['inference'].append(timings['inference'])
-                    self.performance_metrics['postprocess'].append(timings['postprocess'])
-                    self.performance_metrics['total'].append(timings['total'])
-                    
-                    # Store confidence if object is detected
-                    if object_detected and 'conf' in locals():
-                        self.performance_metrics['confidence'].append(conf)
-                    else:
-                        self.performance_metrics['confidence'].append(0.0)
-                    
-                    # Keep only the last 100 measurements
-                    max_metrics = 100
-                    for key in self.performance_metrics:
-                        if len(self.performance_metrics[key]) > max_metrics:
-                            self.performance_metrics[key] = self.performance_metrics[key][-max_metrics:]
-                    
-                    # Print metrics every metrics_interval frames
-                    self.metrics_counter += 1
-                    if self.metrics_counter >= self.metrics_interval:
-                        # Calculate averages
-                        avg_fps = sum(self.performance_metrics['fps']) / len(self.performance_metrics['fps'])
-                        avg_preprocess = sum(self.performance_metrics['preprocess']) / len(self.performance_metrics['preprocess'])
-                        avg_inference = sum(self.performance_metrics['inference']) / len(self.performance_metrics['inference'])
-                        avg_postprocess = sum(self.performance_metrics['postprocess']) / len(self.performance_metrics['postprocess'])
-                        avg_total = sum(self.performance_metrics['total']) / len(self.performance_metrics['total'])
-                        avg_confidence = sum(self.performance_metrics['confidence']) / len(self.performance_metrics['confidence'])
-                        
-                        # Print to terminal with flush=True to ensure immediate output
-                        import sys
-                        sys.stdout.write("\nDetection Performance Metrics (Averaged over last 100 frames):\n")
-                        sys.stdout.write(f"Average FPS: {avg_fps:.2f}\n")
-                        sys.stdout.write(f"Average Preprocessing: {avg_preprocess:.2f} ms\n")
-                        sys.stdout.write(f"Average Inference: {avg_inference:.2f} ms\n")
-                        sys.stdout.write(f"Average Post-processing: {avg_postprocess:.2f} ms\n")
-                        sys.stdout.write(f"Average Total processing time: {avg_total:.2f} ms\n")
-                        sys.stdout.write(f"Average Confidence: {avg_confidence:.2%}\n")
-                        sys.stdout.write("-" * 40 + "\n")
-                        sys.stdout.flush()
-                        
-                        self.metrics_counter = 0
+                    self.update_metrics(timings, fps, conf if object_detected else 0)
                     
                     # Prepare result with all frames
                     result = {
@@ -467,6 +464,45 @@ class VideoProcessor:
                     self.processing = False
                     
             time.sleep(0.01)
+
+    def update_metrics(self, timings, fps, confidence):
+        """Update performance metrics"""
+        self.performance_metrics['fps'].append(fps)
+        self.performance_metrics['preprocess'].append(timings['preprocess'])
+        self.performance_metrics['inference'].append(timings['inference'])
+        self.performance_metrics['postprocess'].append(timings['postprocess'])
+        self.performance_metrics['total'].append(timings['total'])
+        self.performance_metrics['confidence'].append(confidence)
+        
+        # Keep only the last 100 measurements
+        max_metrics = 100
+        for key in self.performance_metrics:
+            if len(self.performance_metrics[key]) > max_metrics:
+                self.performance_metrics[key] = self.performance_metrics[key][-max_metrics:]
+        
+        # Print metrics every metrics_interval frames
+        self.metrics_counter += 1
+        if self.metrics_counter >= self.metrics_interval:
+            self.print_metrics()
+            self.metrics_counter = 0
+
+    def print_metrics(self):
+        """Print performance metrics"""
+        avg_fps = sum(self.performance_metrics['fps']) / len(self.performance_metrics['fps'])
+        avg_preprocess = sum(self.performance_metrics['preprocess']) / len(self.performance_metrics['preprocess'])
+        avg_inference = sum(self.performance_metrics['inference']) / len(self.performance_metrics['inference'])
+        avg_postprocess = sum(self.performance_metrics['postprocess']) / len(self.performance_metrics['postprocess'])
+        avg_total = sum(self.performance_metrics['total']) / len(self.performance_metrics['total'])
+        avg_confidence = sum(self.performance_metrics['confidence']) / len(self.performance_metrics['confidence'])
+        
+        print("\nDetection Performance Metrics (Averaged over last 100 frames):")
+        print(f"Average FPS: {avg_fps:.2f}")
+        print(f"Average Preprocessing: {avg_preprocess:.2f} ms")
+        print(f"Average Inference: {avg_inference:.2f} ms")
+        print(f"Average Post-processing: {avg_postprocess:.2f} ms")
+        print(f"Average Total processing time: {avg_total:.2f} ms")
+        print(f"Average Confidence: {avg_confidence:.2%}")
+        print("-" * 40)
 
     def emit_detection_result(self, result_data):
         """Emit detection result and store in database if valid"""
