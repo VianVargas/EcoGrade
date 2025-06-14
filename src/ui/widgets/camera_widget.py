@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 from src.utils.video_processor import VideoProcessor
 import time
+import traceback
 
 class CameraWidget(QLabel):
     result_updated = pyqtSignal(dict)  # Signal to emit detection results
@@ -81,7 +82,35 @@ class CameraWidget(QLabel):
             self.camera_started = False
             self.update_timer.stop()
     
-    def update_frame(self):
+    def update_frame(self, result):
+        """Update the display with new frames"""
+        try:
+            if result is None:
+                return
+
+            # Update frames
+            self.model_frame = result['model_output']
+            self.residue_frame = result['residue_detection']
+            self.mask_frame = result['mask_display']
+
+            # Update detection info
+            self.object_detected = result['object_detected']
+            self.current_waste_type = result['current_waste_type']
+            self.classification = result['classification']
+            self.current_obj_id = result['current_obj_id']
+            self.current_boxes = result['current_boxes']
+
+            # Update UI
+            self.update_display()
+            self.update_detection_info()
+            self.update()
+
+        except Exception as e:
+            print(f"Error updating frame: {str(e)}")
+            traceback.print_exc()
+
+    def update_display(self):
+        """Update the display with the current frame based on view type"""
         if not self.camera_started:
             self.setStyleSheet("""
                 QLabel {
@@ -95,53 +124,57 @@ class CameraWidget(QLabel):
                 }
             """)
             self.setText(f"{self.view_type.replace('_', ' ').title()} View")
-            self.update()
             return
 
         current_time = time.time() * 1000  # Convert to milliseconds
         if current_time - self.last_update_time < self.update_interval:
             return
 
-        if self.video_processor and self.video_processor.latest_result is not None:
-            result = self.video_processor.latest_result
-            frames = result['frames']
-            
-            # Select frame based on view type
-            if self.view_type == "object_detection":
-                frame = frames['model']
-            elif self.view_type == "residue_scan":
-                frame = frames['residue']
-            elif self.view_type == "mask":
-                frame = frames['mask']
-            else:
-                frame = frames['model']
+        # Select frame based on view type
+        if self.view_type == "object_detection":
+            frame = self.model_frame
+        elif self.view_type == "residue_scan":
+            frame = self.residue_frame
+        elif self.view_type == "mask":
+            frame = self.mask_frame
+        else:
+            frame = self.model_frame
 
-            if frame is not None and frame.size > 0:
-                # Cache the frame buffer
-                if self.frame_buffer is None or self.frame_buffer.shape != frame.shape:
-                    self.frame_buffer = np.zeros_like(frame)
-                
-                # Update frame buffer
-                np.copyto(self.frame_buffer, frame)
-                
-                # Convert to QImage only when needed
-                height, width, channel = self.frame_buffer.shape
-                bytes_per_line = 3 * width
-                q_image = QImage(self.frame_buffer.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
-                
-                # Scale pixmap efficiently to 80% of container size
-                pixmap = QPixmap.fromImage(q_image)
-                target_size = QSize(int(self.width() * 0.9), int(self.height() * 0.9))
-                scaled_pixmap = pixmap.scaled(target_size, Qt.KeepAspectRatio, Qt.FastTransformation)
-                self.setPixmap(scaled_pixmap)
-                
-                # Emit result
-                self.result_updated.emit(result['data'])
-                self.last_update_time = current_time
-            else:
-                self.handle_empty_frame()
+        if frame is not None and frame.size > 0:
+            # Cache the frame buffer
+            if self.frame_buffer is None or self.frame_buffer.shape != frame.shape:
+                self.frame_buffer = np.zeros_like(frame)
+            
+            # Update frame buffer
+            np.copyto(self.frame_buffer, frame)
+            
+            # Convert to QImage only when needed
+            height, width, channel = self.frame_buffer.shape
+            bytes_per_line = 3 * width
+            q_image = QImage(self.frame_buffer.data, width, height, bytes_per_line, QImage.Format_RGB888).rgbSwapped()
+            
+            # Scale pixmap efficiently to 80% of container size
+            pixmap = QPixmap.fromImage(q_image)
+            target_size = QSize(int(self.width() * 0.9), int(self.height() * 0.9))
+            scaled_pixmap = pixmap.scaled(target_size, Qt.KeepAspectRatio, Qt.FastTransformation)
+            self.setPixmap(scaled_pixmap)
+            
+            self.last_update_time = current_time
         else:
             self.handle_empty_frame()
+
+    def update_detection_info(self):
+        """Update detection information and emit signals"""
+        if self.object_detected:
+            result_data = {
+                'id': self.current_obj_id,
+                'waste_type': self.current_waste_type,
+                'classification': self.classification,
+                'boxes': self.current_boxes
+            }
+            self.result_updated.emit(result_data)
+        else:
+            self.result_updated.emit(None)
 
     def handle_empty_frame(self):
         self.setStyleSheet("""
