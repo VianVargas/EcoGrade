@@ -236,6 +236,12 @@ class VideoProcessor:
             print(f"Max prediction value: {np.max(predictions):.4f}")
             print(f"Mean prediction value: {np.mean(predictions):.4f}")
             
+            # Apply sigmoid activation to convert logits to probabilities
+            predictions = 1 / (1 + np.exp(-predictions))
+            
+            # Debug after sigmoid
+            print(f"After sigmoid - Min: {np.min(predictions):.4f}, Max: {np.max(predictions):.4f}, Mean: {np.mean(predictions):.4f}")
+            
             # Convert predictions to boxes and scores
             boxes = []
             scores = []
