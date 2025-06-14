@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 import logging
 import traceback
 import math
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -121,6 +122,10 @@ class MainView(QWidget):
         self.detection_interval = 0.1  # Reduce from 0.2 to 0.1
         self.processing_size = (416, 416)  # Increase from (320, 240)
         self.update_interval = 33  # Increase from 50ms to ~30 FPS
+        
+        # Add cooldown tracking
+        self.last_servo_command_time = 0
+        self.servo_cooldown = 2.0  # 2 seconds cooldown between servo commands
         
         # Initialize servo controller
         try:
@@ -573,28 +578,33 @@ class MainView(QWidget):
         # Force immediate UI update again
         QApplication.processEvents()
         
-        # Process servo command after UI updates
+        # Process servo command after UI updates with cooldown
         if hasattr(self, 'servo_controller') and self.servo_controller:
             classification = result.get('classification', '-')
-            # Map classification to servo commands
-            servo_command = None
-            if classification == 'High Value':
-                servo_command = 'high'
-            elif classification == 'Low Value':
-                servo_command = 'low'
-            elif classification == 'Rejected':
-                servo_command = 'reject'
-            elif classification == 'Mixed':
-                servo_command = 'mix'
-                
-            # Process valid servo commands
-            if servo_command:
-                try:
-                    logging.info(f"Processing servo command: {servo_command} (from classification: {classification})")
-                    self.servo_controller.process_command(servo_command)
-                    logging.info(f"Servo command {servo_command} executed successfully")
-                except Exception as e:
-                    logging.error(f"Error executing servo command {servo_command}: {e}")
+            current_time = time.time()
+            
+            # Check if enough time has passed since last servo command
+            if current_time - self.last_servo_command_time >= self.servo_cooldown:
+                # Map classification to servo commands
+                servo_command = None
+                if classification == 'High Value':
+                    servo_command = 'high'
+                elif classification == 'Low Value':
+                    servo_command = 'low'
+                elif classification == 'Rejected':
+                    servo_command = 'reject'
+                elif classification == 'Mixed':
+                    servo_command = 'mix'
+                    
+                # Process valid servo commands
+                if servo_command:
+                    try:
+                        logging.info(f"Processing servo command: {servo_command} (from classification: {classification})")
+                        self.servo_controller.process_command(servo_command)
+                        self.last_servo_command_time = current_time  # Update last command time
+                        logging.info(f"Servo command {servo_command} executed successfully")
+                    except Exception as e:
+                        logging.error(f"Error executing servo command {servo_command}: {e}")
 
     def _show_no_object_detected(self):
         self.waste_type_widget.update_value('No object detected')
