@@ -82,9 +82,28 @@ class CameraWidget(QLabel):
             self.camera_started = False
             self.update_timer.stop()
     
-    def update_frame(self, result):
+    def update_frame(self, result=None):
         """Update the display with new frames"""
         try:
+            if not self.camera_started:
+                self.setStyleSheet("""
+                    QLabel {
+                        color: #3ac194;
+                        background-color: black;
+                        border-radius: 10px;
+                        border: 1px solid #3ac194;
+                    }
+                    QLabel:hover {
+                        border: 2px solid #14e7a1;
+                    }
+                """)
+                self.setText(f"{self.view_type.replace('_', ' ').title()} View")
+                return
+
+            # If no result provided, try to get from video processor
+            if result is None and self.video_processor and self.video_processor.latest_result is not None:
+                result = self.video_processor.latest_result
+
             if result is None:
                 return
 

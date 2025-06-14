@@ -652,7 +652,12 @@ class MainView(QWidget):
                 self.video_processor.initialize()
                 self.video_processor.start()
                 
-                # Start camera widgets without animation
+                # Connect video processor to camera widgets
+                self.object_detection_camera.video_processor = self.video_processor
+                if self.is_two_camera_layout:
+                    self.residue_scan_camera.video_processor = self.video_processor
+                
+                # Start camera widgets
                 self.object_detection_camera.start_camera()
                 if self.is_two_camera_layout:
                     self.residue_scan_camera.start_camera()
@@ -694,7 +699,8 @@ class MainView(QWidget):
                 # Stop the video processor and cameras
                 self.video_processor.stop()
                 self.object_detection_camera.stop_camera()
-                self.residue_scan_camera.stop_camera()
+                if self.is_two_camera_layout:
+                    self.residue_scan_camera.stop_camera()
                 
                 # Reset results
                 self.waste_type_widget.update_value("-")
@@ -707,7 +713,8 @@ class MainView(QWidget):
             self.start_btn.setIcon(self.camera_off_icon)
             self.video_processor.stop()
             self.object_detection_camera.stop_camera()
-            self.residue_scan_camera.stop_camera()
+            if self.is_two_camera_layout:
+                self.residue_scan_camera.stop_camera()
             
             # Reset results on error
             self.waste_type_widget.update_value("-")
