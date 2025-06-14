@@ -53,9 +53,9 @@ def convert_to_onnx(model_path, output_dir, opset=12, simplify=True, optimize=Tr
             # Create optimized model
             optimized_model = ort.InferenceSession(onnx_path, session_options)
             
-            # Save optimized model
+            # Save optimized model using ONNX save
             optimized_path = os.path.join(output_dir, "best_optimized.onnx")
-            optimized_model.save_model(optimized_path)
+            onnx.save(onnx_model, optimized_path)
             
             # Verify optimized model
             onnx_model = onnx.load(optimized_path)
