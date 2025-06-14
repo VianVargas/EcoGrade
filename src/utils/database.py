@@ -5,6 +5,31 @@ from datetime import datetime
 import random
 import string
 
+def init_db():
+    """Initialize the SQLite database and create tables if they don't exist"""
+    try:
+        # Create data directory if it doesn't exist
+        os.makedirs('data', exist_ok=True)
+        
+        conn = sqlite3.connect('data/measurements.db')
+        c = conn.cursor()
+        
+        # Create detections table if it doesn't exist
+        c.execute('''CREATE TABLE IF NOT EXISTS detections (
+            id TEXT PRIMARY KEY,
+            timestamp TEXT,
+            waste_type TEXT,
+            confidence_level TEXT,
+            contamination REAL,
+            classification TEXT
+        )''')
+        
+        conn.commit()
+        conn.close()
+        print("Database initialized successfully")
+    except Exception as e:
+        print(f"Error initializing database: {str(e)}")
+
 def save_detection_to_excel(detection_data, excel_path='detections.xlsx'):
     """
     Save a detection result to an Excel file. If the file doesn't exist, create it with headers.
