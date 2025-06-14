@@ -9,7 +9,6 @@ from queue import Queue
 import os
 from datetime import datetime
 from pathlib import Path
-from src.utils.app_client import app_client
 from src.utils.classification import classify_output
 from src.utils.residue import detect_residue_colors, calculate_residue_score
 from src.utils.database import store_measurement, generate_unique_id
@@ -41,7 +40,7 @@ class VideoProcessor:
         self.detection_thread = None
         self.detection_running = False
         self.detection_lock = threading.Lock()
-        self.frame_skip = 3  # Increased from 2 to reduce processing load
+        self.frame_skip = 2  # Increased from 2 to reduce processing load
         
         # Performance metrics
         self.performance_metrics = {
@@ -488,7 +487,6 @@ class VideoProcessor:
                 result_data['id'] = generate_unique_id(self.object_trackers, self.finalized_ids)
             
             store_measurement(result_data)
-            app_client.process_detection(result_data)
 
     def _store_measurement(self, result_data):
         """Store measurement in SQLite database"""

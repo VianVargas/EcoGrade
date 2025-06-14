@@ -10,7 +10,6 @@ from src.utils.servo_controller import ServoController
 import pyqtgraph as pg
 import numpy as np
 from datetime import datetime, timedelta
-from src.utils.app_client import app_client
 import logging
 import traceback
 import math
@@ -677,24 +676,18 @@ class MainView(QWidget):
             self.confidence_widget.update_value("0.00%")
 
     def closeEvent(self, event):
-        """Handle window close event."""
-        # Stop all camera widgets
-        self.object_detection_camera.stop_camera()
-        self.residue_scan_camera.stop_camera()
-        
-        # Clean up servo controller
-        if self.servo_controller:
-            try:
-                self.servo_controller.cleanup()
-                logger.info("Servo controller cleaned up successfully")
-            except Exception as e:
-                logger.error(f"Error cleaning up servo controller: {e}")
-        
-        # Clean up app client
+        """Handle window close event"""
         try:
-            logging.info("Cleaning up app client connection...")
-            app_client.cleanup()
-            logging.info("Successfully cleaned up app client connection")
+            # Stop video processing
+            if self.video_processor:
+                self.video_processor.stop()
+                self.video_processor.release_camera()
+            
+            # Clean up servo controller
+            if self.servo_controller:
+                self.servo_controller.cleanup()
+            
+            event.accept()
         except Exception as e:
-            logging.error(f"Error during app client cleanup: {str(e)}")
-        event.accept()
+            logger.error(f"Error in closeEvent: {str(e)}")
+            event.accept()
