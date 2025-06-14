@@ -184,19 +184,19 @@ class MainWindow(QMainWindow):
             )
             
             if reply == QMessageBox.Yes:
-                # Stop the video processor
-                if hasattr(self, 'main_view') and hasattr(self.main_view, 'video_processor'):
-                    self.main_view.video_processor.stop()
-                
-                # Stop any running cameras
-                if hasattr(self, 'main_view'):
-                    if hasattr(self.main_view, 'object_detection_camera'):
-                        self.main_view.object_detection_camera.stop_camera()
-                    if hasattr(self.main_view, 'residue_scan_camera'):
-                        self.main_view.residue_scan_camera.stop_camera()
-                
-                # Accept the close event
-                event.accept()
+            # Stop the video processor
+            if hasattr(self, 'main_view') and hasattr(self.main_view, 'video_processor'):
+                self.main_view.video_processor.stop()
+            
+            # Stop any running cameras
+            if hasattr(self, 'main_view'):
+                if hasattr(self.main_view, 'object_detection_camera'):
+                    self.main_view.object_detection_camera.stop_camera()
+                if hasattr(self.main_view, 'residue_scan_camera'):
+                    self.main_view.residue_scan_camera.stop_camera()
+            
+            # Accept the close event
+            event.accept()
             else:
                 # Reject the close event
                 event.ignore()

@@ -30,7 +30,7 @@ class VideoProcessor:
         self.is_running = False
         self.current_frame = None
         self.frame_lock = threading.Lock()
-        self.detection_interval = 0.033  # Reduced from 0.1 to 0.033 for ~30 FPS
+        self.detection_interval = 0.2  # Increased from 0.1 to reduce processing load
         self.last_detection_time = 0
         self.detection_callback = None
         self.camera = None
@@ -40,7 +40,7 @@ class VideoProcessor:
         self.detection_thread = None
         self.detection_running = False
         self.detection_lock = threading.Lock()
-        self.frame_skip = 2  # Increased from 1 to 2 to reduce processing load
+        self.frame_skip = 2  # Increased from 2 to reduce processing load
         
         # Performance metrics
         self.performance_metrics = {
@@ -49,10 +49,10 @@ class VideoProcessor:
             'inference': [],
             'postprocess': [],
             'total': [],
-            'confidence': []
+            'confidence': []  # Add confidence tracking
         }
         self.metrics_counter = 0
-        self.metrics_interval = 30
+        self.metrics_interval = 30  # Print metrics every 30 frames
         
         # Tracking variables
         self.tracker = cv2.TrackerCSRT_create()
@@ -67,7 +67,7 @@ class VideoProcessor:
         self.bbox_history = []
         self.max_history = 5
         self.cap = None
-        self.frame_queue = Queue(maxsize=1)  # Reduced from 2 to 1 to minimize memory usage
+        self.frame_queue = Queue(maxsize=2)
         self.running = False
         self.processing = False
         self.last_boxes = []
@@ -91,11 +91,11 @@ class VideoProcessor:
         self.finalized_times = {}
         self.min_detection_area = 10000
         self.max_detection_area = 300000
-        self.processing_size = (320, 320)  # Reduced from (416, 416) for faster processing
+        self.processing_size = (320, 240)  # Smaller size for processing
         
         # Cooldown timer for detections
-        self.last_detection_times = {}
-        self.detection_cooldown = 1.0
+        self.last_detection_times = {}  # Dictionary to store last detection time per waste type
+        self.detection_cooldown = 3.0  # Cooldown period in seconds
 
     def initialize(self):
         if not VideoProcessor._initialized:
@@ -108,7 +108,7 @@ class VideoProcessor:
                 VideoProcessor._camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
                 VideoProcessor._camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
                 VideoProcessor._camera.set(cv2.CAP_PROP_FPS, 30)
-                VideoProcessor._camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduced from 8 to 1
+                VideoProcessor._camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                 VideoProcessor._camera.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
                 VideoProcessor._camera.set(cv2.CAP_PROP_EXPOSURE, -6)
                 VideoProcessor._camera.set(cv2.CAP_PROP_GAIN, 100)
@@ -127,8 +127,8 @@ class VideoProcessor:
                 ret, frame = VideoProcessor._camera.read()
                 if ret:
                     frame = cv2.resize(frame, self.frame_size)
-                    frame = cv2.GaussianBlur(frame, (3, 3), 0)  # Reduced kernel size from (5,5) to (3,3)
-                    frame = cv2.convertScaleAbs(frame, alpha=1.1, beta=5)  # Reduced contrast adjustment
+                    frame = cv2.GaussianBlur(frame, (5, 5), 0)
+                    frame = cv2.convertScaleAbs(frame, alpha=1.2, beta=10)
                     self.background = frame.copy()
                     self.background_captured = True
                     print("Initial background captured")
@@ -176,7 +176,7 @@ class VideoProcessor:
 
     def _process_frames(self):
         while self.running:
-            if not self.frame_queue.empty():
+            if not self.processing and not self.frame_queue.empty():
                 try:
                     self.processing = True
                     frame = self.frame_queue.get()
@@ -195,8 +195,8 @@ class VideoProcessor:
                         continue
                     self._frame_skip_counter = 0
                     
-                    # Resize frame for processing with faster interpolation
-                    frame_small = cv2.resize(frame_cropped, self.processing_size, interpolation=cv2.INTER_NEAREST)
+                    # Resize frame for processing
+                    frame_small = cv2.resize(frame_cropped, self.processing_size)
                     timings = {
                         'preprocess': (time.time() - preprocess_start) * 1000
                     }
@@ -326,12 +326,12 @@ class VideoProcessor:
                                 object_detected = True
                                 
                                 box_color = (0, 255, 0)
-                                cv2.rectangle(model_output, (x1, y1), (x2, y2), box_color, 2)  # Reduced line thickness from 4 to 2
+                                cv2.rectangle(model_output, (x1, y1), (x2, y2), box_color, 4)
                                 
                                 if hasattr(box, 'masks') and box.masks is not None:
                                     mask = box.masks.cpu().numpy()[0]
-                                    # Scale mask to original size with faster interpolation
-                                    mask = cv2.resize(mask, (frame_cropped.shape[1], frame_cropped.shape[0]), interpolation=cv2.INTER_NEAREST)
+                                    # Scale mask to original size
+                                    mask = cv2.resize(mask, (frame_cropped.shape[1], frame_cropped.shape[0]))
                                     object_mask = (mask * 255).astype(np.uint8)
                                 else:
                                     object_mask[y1:y2, x1:x2] = 255
@@ -346,10 +346,6 @@ class VideoProcessor:
                                         self.current_contamination_score = contamination_score
                                         mask_display = cv2.cvtColor(residue_mask, cv2.COLOR_GRAY2BGR)
                     
-                    # Add animation to model output
-                    model_output = add_detection_animation(model_output, object_detected, current_boxes, 
-                                                        self.last_classification, self.animation_time)
-                    
                     # Update classification
                     if object_detected:
                         criteria_met = (current_waste_type != '-')
@@ -359,24 +355,20 @@ class VideoProcessor:
                             if self.detection_start_time is None:
                                 self.detection_start_time = current_time
                                 classification = 'Analyzing...'
-                            elif current_time - self.detection_start_time >= 0.3:  # Reduced from 0.5 to 0.3
-                                if current_obj_id and self.object_trackers[current_obj_id]['stable_count'] >= 3:  # Reduced from 5 to 3
+                            elif current_time - self.detection_start_time >= 0.5:
+                                if current_obj_id and self.object_trackers[current_obj_id]['stable_count'] >= 5:  # Increased from 3
                                     classification = classify_output(current_waste_type, self.current_contamination_score)
-                                    result_data = {
+                                    self.object_trackers[current_obj_id]['result'] = {
                                         'id': current_obj_id,
                                         'waste_type': current_waste_type,
                                         'contamination_score': self.current_contamination_score,
                                         'classification': classification,
                                         'confidence_level': conf if object_detected else 0
                                     }
-                                    self.object_trackers[current_obj_id]['result'] = result_data
                                     self.object_trackers[current_obj_id]['state'] = 'finalized'
                                     self.finalized_ids.add(current_obj_id)
                                     self.finalized_times[current_obj_id] = current_time
-                                    
-                                    # Emit result only if it's a valid classification
-                                    if classification not in ['Analyzing...', 'No object detected', 'Waiting for: Type', 'Unknown', '-']:
-                                        self.emit_detection_result(result_data)
+                                    self.emit_detection_result(self.object_trackers[current_obj_id]['result'])
                                 else:
                                     classification = 'Analyzing...'
                         else:
@@ -388,6 +380,10 @@ class VideoProcessor:
                     else:
                         self.detection_start_time = None
                         classification = 'No object detected'
+                    
+                    # Add animation to model output
+                    model_output = add_detection_animation(model_output, object_detected, current_boxes, 
+                                                        self.last_classification, self.animation_time)
                     
                     # Calculate final timings
                     timings['postprocess'] = (time.time() - postprocess_start) * 1000

@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLabel, QMessageBox, QSizePolicy, QApplication
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLabel, QMessageBox, QSizePolicy
 from PyQt5.QtCore import Qt, QTimer, QSize, QRect
 from PyQt5.QtGui import QFont, QPainter, QPainterPath, QIcon, QColor, QLinearGradient
 from PyQt5.QtSvg import QSvgWidget
@@ -13,7 +13,6 @@ from datetime import datetime, timedelta
 import logging
 import traceback
 import math
-import time
 
 # Configure logging
 logging.basicConfig(
@@ -122,10 +121,6 @@ class MainView(QWidget):
         self.detection_interval = 0.1  # Reduce from 0.2 to 0.1
         self.processing_size = (416, 416)  # Increase from (320, 240)
         self.update_interval = 33  # Increase from 50ms to ~30 FPS
-        
-        # Add cooldown tracking
-        self.last_servo_command_time = 0
-        self.servo_cooldown = 2.0  # 2 seconds cooldown between servo commands
         
         # Initialize servo controller
         try:
@@ -534,77 +529,42 @@ class MainView(QWidget):
             logging.error(traceback.format_exc())
             QMessageBox.critical(self, "Error", f"Failed to change camera layout: {str(e)}")
 
-    def update_detection_results(self, result):
-        """Update UI with detection results"""
-        if not result:
-            return
+    def update_detection_results(self, results):
+        """Update detection results and control servos"""
+        try:
+            if not results:
+                return
+
+            # Update last detection time
+            self.last_detection_time = datetime.now()
             
-        # Store the last detection result
-        self.last_detection_result = result
-        
-        # Update UI widgets first
-        if hasattr(self, 'waste_type_widget'):
-            self.waste_type_widget.update_value(result.get('waste_type', '-'))
+            # Store the results
+            self.last_valid_detection = results
             
-        if hasattr(self, 'confidence_widget'):
-            confidence = result.get('confidence_level', 0)
-            self.confidence_widget.update_value(f"{confidence:.2f}%")
+            # Update UI widgets
+            self.waste_type_widget.update_value(results.get('waste_type', '-'))
+            self.contamination_widget.update_value(f"{results.get('contamination_score', 0.0):.2f}%")
+            self.classification_widget.update_value(results.get('classification', '-'))
+            self.confidence_widget.update_value(f"{results.get('confidence_level', 0.0):.2f}%")
             
-        if hasattr(self, 'contamination_widget'):
-            contamination = result.get('contamination_score', 0)
-            self.contamination_widget.update_value(f"{contamination:.2f}%")
+            # Control servos based on classification
+            if self.servo_controller:
+                classification = results.get('classification', '').lower()
+                try:
+                    if 'high' in classification:
+                        self.servo_controller.process_command('high')
+                    elif 'mix' in classification:
+                        self.servo_controller.process_command('mix')
+                    elif 'low' in classification:
+                        self.servo_controller.process_command('low')
+                    elif 'reject' in classification:
+                        self.servo_controller.process_command('reject')
+                except Exception as e:
+                    logger.error(f"Error controlling servos: {e}")
             
-        if hasattr(self, 'classification_widget'):
-            classification = result.get('classification', '-')
-            self.classification_widget.update_value(classification)
-            
-        # Force immediate UI update
-        QApplication.processEvents()
-        
-        # Update detection history
-        if hasattr(self, 'detection_history'):
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            history_text = f"[{timestamp}] {result.get('waste_type', '-')} - {result.get('classification', '-')}"
-            self.detection_history.append(history_text)
-            
-            # Keep only last 10 entries
-            if len(self.detection_history) > 10:
-                self.detection_history.pop(0)
-                
-            # Update history display
-            if hasattr(self, 'history_text'):
-                self.history_text.setPlainText('\n'.join(self.detection_history))
-                
-        # Force immediate UI update again
-        QApplication.processEvents()
-        
-        # Process servo command after UI updates with cooldown
-        if hasattr(self, 'servo_controller') and self.servo_controller:
-            classification = result.get('classification', '-')
-            current_time = time.time()
-            
-            # Check if enough time has passed since last servo command
-            if current_time - self.last_servo_command_time >= self.servo_cooldown:
-                # Map classification to servo commands
-                servo_command = None
-                if classification == 'High Value':
-                    servo_command = 'high'
-                elif classification == 'Low Value':
-                    servo_command = 'low'
-                elif classification == 'Rejected':
-                    servo_command = 'reject'
-                elif classification == 'Mixed':
-                    servo_command = 'mix'
-                    
-                # Process valid servo commands
-                if servo_command:
-                    try:
-                        logging.info(f"Processing servo command: {servo_command} (from classification: {classification})")
-                        self.servo_controller.process_command(servo_command)
-                        self.last_servo_command_time = current_time  # Update last command time
-                        logging.info(f"Servo command {servo_command} executed successfully")
-                    except Exception as e:
-                        logging.error(f"Error executing servo command {servo_command}: {e}")
+        except Exception as e:
+            logger.error(f"Error updating detection results: {e}")
+            traceback.print_exc()
 
     def _show_no_object_detected(self):
         self.waste_type_widget.update_value('No object detected')
