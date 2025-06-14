@@ -117,10 +117,10 @@ class MainView(QWidget):
         self.last_valid_detection = None
         self.is_two_camera_layout = False  # Start with single camera layout
         self.is_detecting = False  # Track detection state
-        self.frame_skip = 2  # Reduce from 3 to 2
-        self.detection_interval = 0.1  # Reduce from 0.2 to 0.1
-        self.processing_size = (416, 416)  # Increase from (320, 240)
-        self.update_interval = 33  # Increase from 50ms to ~30 FPS
+        self.frame_skip = 1  # Process every frame
+        self.detection_interval = 0.033  # Reduced from 0.1 to 0.033 (30 FPS)
+        self.processing_size = (640, 480)  # Increased from (416, 416)
+        self.update_interval = 33  # Increased from 50ms to ~30 FPS
         
         # Initialize servo controller
         try:

@@ -30,7 +30,7 @@ class VideoProcessor:
         self.is_running = False
         self.current_frame = None
         self.frame_lock = threading.Lock()
-        self.detection_interval = 0.2  # Increased from 0.1 to reduce processing load
+        self.detection_interval = 0.033  # Reduced from 0.2 to 0.033 (30 FPS)
         self.last_detection_time = 0
         self.detection_callback = None
         self.camera = None
@@ -40,7 +40,7 @@ class VideoProcessor:
         self.detection_thread = None
         self.detection_running = False
         self.detection_lock = threading.Lock()
-        self.frame_skip = 2  # Increased from 2 to reduce processing load
+        self.frame_skip = 1  # Process every frame
         
         # Performance metrics
         self.performance_metrics = {
@@ -91,7 +91,7 @@ class VideoProcessor:
         self.finalized_times = {}
         self.min_detection_area = 10000
         self.max_detection_area = 300000
-        self.processing_size = (320, 240)  # Smaller size for processing
+        self.processing_size = (640, 480)  # Increased from (320, 240) for better accuracy
         
         # Cooldown timer for detections
         self.last_detection_times = {}  # Dictionary to store last detection time per waste type
