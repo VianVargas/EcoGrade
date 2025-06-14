@@ -216,10 +216,13 @@ class VideoProcessor:
             # Debug output shape
             print(f"Predictions shape: {predictions.shape}")
             
+            # Apply softmax to get probabilities
+            exp_preds = np.exp(predictions[0] - np.max(predictions[0], axis=0, keepdims=True))
+            class_probs = exp_preds / np.sum(exp_preds, axis=0, keepdims=True)
+            
             # Get the class with highest confidence for each prediction
-            class_scores = predictions[0]  # Shape: (12, 8400)
-            max_scores = np.max(class_scores, axis=0)  # Shape: (8400,)
-            class_ids = np.argmax(class_scores, axis=0)  # Shape: (8400,)
+            max_scores = np.max(class_probs, axis=0)  # Shape: (8400,)
+            class_ids = np.argmax(class_probs, axis=0)  # Shape: (8400,)
             
             # Debug confidence scores
             print(f"Max confidence: {np.max(max_scores):.4f}")
