@@ -24,7 +24,7 @@ class VideoProcessor:
             cls._instance = super(VideoProcessor, cls).__new__(cls)
         return cls._instance
     
-    def __init__(self, model_path='best.onnx'):
+    def __init__(self, model_path='models/best_optimized.onnx'):
         # Initialize ONNX Runtime session with optimizations
         self.session_options = ort.SessionOptions()
         self.session_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
@@ -33,10 +33,10 @@ class VideoProcessor:
         # Try to use GPU if available, otherwise fall back to CPU
         try:
             self.session = ort.InferenceSession(model_path, self.session_options, 
-                                              providers=['TensorrtExecutionProvider', 'CUDAExecutionProvider', 'CPUExecutionProvider'])
-        except:
-            self.session = ort.InferenceSession(model_path, self.session_options, 
-                                              providers=['CPUExecutionProvider'])
+                                              providers=['CPUExecutionProvider'])  # Simplified providers
+        except Exception as e:
+            print(f"Error loading ONNX model: {str(e)}")
+            raise
         
         # Get model metadata
         self.input_name = self.session.get_inputs()[0].name
@@ -202,34 +202,60 @@ class VideoProcessor:
 
     def postprocess_output(self, outputs, original_frame):
         """Process ONNX model outputs to get detections"""
-        # Extract outputs based on YOLO format
-        boxes = outputs[0]  # Assuming first output is boxes
-        scores = outputs[1]  # Assuming second output is scores
-        class_ids = outputs[2]  # Assuming third output is class IDs
-        
-        # Filter detections based on confidence
-        mask = scores > self.min_confidence
-        boxes = boxes[mask]
-        scores = scores[mask]
-        class_ids = class_ids[mask]
-        
-        # Convert boxes to original image coordinates
-        scale_x = original_frame.shape[1] / self.processing_size[0]
-        scale_y = original_frame.shape[0] / self.processing_size[1]
-        
-        detections = []
-        for box, score, class_id in zip(boxes, scores, class_ids):
-            x1, y1, x2, y2 = box
-            x1, x2 = x1 * scale_x, x2 * scale_x
-            y1, y2 = y1 * scale_y, y2 * scale_y
+        try:
+            # YOLO ONNX output format: (1, 12, 8400) where:
+            # - 1 is batch size
+            # - 12 is number of classes
+            # - 8400 is number of predictions per class
+            predictions = outputs[0]  # Shape: (1, 12, 8400)
             
-            detections.append({
-                'box': [int(x1), int(y1), int(x2), int(y2)],
-                'score': float(score),
-                'class_id': int(class_id)
-            })
-        
-        return detections
+            # Get the class with highest confidence for each prediction
+            class_scores = predictions[0]  # Shape: (12, 8400)
+            max_scores = np.max(class_scores, axis=0)  # Shape: (8400,)
+            class_ids = np.argmax(class_scores, axis=0)  # Shape: (8400,)
+            
+            # Filter predictions based on confidence
+            mask = max_scores > self.min_confidence
+            filtered_scores = max_scores[mask]
+            filtered_class_ids = class_ids[mask]
+            
+            # Get corresponding indices
+            indices = np.where(mask)[0]
+            
+            # Convert indices to box coordinates
+            # Each index corresponds to a grid cell
+            grid_size = 80  # 640/8 = 80 (assuming 8x8 grid)
+            cell_size = 8   # 640/80 = 8
+            
+            detections = []
+            for idx, score, cls_id in zip(indices, filtered_scores, filtered_class_ids):
+                # Convert index to grid coordinates
+                grid_x = idx % grid_size
+                grid_y = idx // grid_size
+                
+                # Convert grid coordinates to pixel coordinates
+                x1 = grid_x * cell_size
+                y1 = grid_y * cell_size
+                x2 = x1 + cell_size
+                y2 = y1 + cell_size
+                
+                # Scale to original image size
+                scale_x = original_frame.shape[1] / self.processing_size[0]
+                scale_y = original_frame.shape[0] / self.processing_size[1]
+                
+                x1, x2 = int(x1 * scale_x), int(x2 * scale_x)
+                y1, y2 = int(y1 * scale_y), int(y2 * scale_y)
+                
+                detections.append({
+                    'box': [x1, y1, x2, y2],
+                    'score': float(score),
+                    'class_id': int(cls_id)
+                })
+            
+            return detections
+        except Exception as e:
+            print(f"Error in postprocessing: {str(e)}")
+            return []
 
     def _process_frames(self):
         while self.running:
