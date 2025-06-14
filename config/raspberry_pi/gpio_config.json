@@ -1,0 +1,61 @@
+{
+  "servo_motors": {
+    "plastic": {
+      "pin": 17,
+      "pwm_frequency": 50,
+      "min_angle": 0,
+      "max_angle": 180,
+      "default_position": 90,
+      "sort_position": 45
+    },
+    "metal": {
+      "pin": 18,
+      "pwm_frequency": 50,
+      "min_angle": 0,
+      "max_angle": 180,
+      "default_position": 90,
+      "sort_position": 135
+    },
+    "paper": {
+      "pin": 27,
+      "pwm_frequency": 50,
+      "min_angle": 0,
+      "max_angle": 180,
+      "default_position": 90,
+      "sort_position": 0
+    }
+  },
+  "led_indicators": {
+    "status": {
+      "pin": 22,
+      "active_high": true
+    },
+    "error": {
+      "pin": 23,
+      "active_high": true
+    },
+    "detection": {
+      "pin": 24,
+      "active_high": true
+    }
+  },
+  "buttons": {
+    "emergency_stop": {
+      "pin": 25,
+      "pull_up_down": "up",
+      "active_low": true
+    },
+    "manual_override": {
+      "pin": 26,
+      "pull_up_down": "up",
+      "active_low": true
+    }
+  },
+  "sensors": {
+    "proximity": {
+      "pin": 4,
+      "trigger_pin": 5,
+      "echo_pin": 6
+    }
+  }
+}

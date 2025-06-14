@@ -1,0 +1,56 @@
+{
+  "system": {
+    "memory": {
+      "gpu_memory": 128,
+      "max_swap_size": 2048,
+      "swap_swappiness": 10
+    },
+    "performance": {
+      "cpu_governor": "performance",
+      "gpu_freq": 500,
+      "arm_freq": 1500,
+      "over_voltage": 2
+    }
+  },
+  "application": {
+    "model": {
+      "device": "cpu",
+      "threads": 4,
+      "batch_size": 1,
+      "half_precision": true
+    },
+    "processing": {
+      "max_queue_size": 2,
+      "worker_threads": 2,
+      "io_threads": 1
+    },
+    "logging": {
+      "level": "INFO",
+      "max_size": 10,
+      "backup_count": 3
+    }
+  },
+  "network": {
+    "server": {
+      "host": "0.0.0.0",
+      "port": 5000,
+      "timeout": 30
+    },
+    "client": {
+      "reconnect_interval": 5,
+      "max_retries": 3
+    }
+  },
+  "optimization": {
+    "camera": {
+      "use_mmap": true,
+      "use_v4l2": true,
+      "buffer_count": 4
+    },
+    "display": {
+      "use_drm": true,
+      "vsync": true,
+      "double_buffer": true
+    }
+  }
+}

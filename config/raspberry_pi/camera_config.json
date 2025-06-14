@@ -1,0 +1,40 @@
+{
+  "camera": {
+    "type": "raspberry_pi",
+    "resolution": {
+      "width": 640,
+      "height": 480
+    },
+    "fps": 30,
+    "exposure": {
+      "mode": "auto",
+      "value": -6
+    },
+    "gain": 100,
+    "buffer_size": 1,
+    "auto_exposure": true,
+    "processing": {
+      "resize_factor": 0.5,
+      "blur_kernel": [5, 5],
+      "contrast_alpha": 1.2,
+      "contrast_beta": 10
+    }
+  },
+  "optimization": {
+    "frame_skip": 2,
+    "detection_interval": 0.1,
+    "min_confidence": 0.5,
+    "min_detection_area": 10000,
+    "max_detection_area": 300000,
+    "processing_size": {
+      "width": 320,
+      "height": 240
+    }
+  },
+  "tracking": {
+    "max_tracking_lost": 30,
+    "smoothing_factor": 0.7,
+    "min_iou": 0.4,
+    "max_history": 5
+  }
+}
