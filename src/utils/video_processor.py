@@ -236,12 +236,6 @@ class VideoProcessor:
             print(f"Max prediction value: {np.max(predictions):.4f}")
             print(f"Mean prediction value: {np.mean(predictions):.4f}")
             
-            # Apply sigmoid activation to convert logits to probabilities
-            predictions = 1 / (1 + np.exp(-predictions))
-            
-            # Debug after sigmoid
-            print(f"After sigmoid - Min: {np.min(predictions):.4f}, Max: {np.max(predictions):.4f}, Mean: {np.mean(predictions):.4f}")
-            
             # Convert predictions to boxes and scores
             boxes = []
             scores = []
@@ -251,25 +245,30 @@ class VideoProcessor:
             grid_size = 80  # 640/8 = 80 (assuming 8x8 grid)
             cell_size = 8   # 640/80 = 8
             
-            for i in range(8400):
-                grid_x = i % grid_size
-                grid_y = i // grid_size
+            # Reshape predictions to (12, 8400)
+            predictions = predictions[0]
+            
+            # Get max scores and class IDs for each cell
+            max_scores = np.max(predictions, axis=0)  # Shape: (8400,)
+            class_ids = np.argmax(predictions, axis=0)  # Shape: (8400,)
+            
+            # Debug scores
+            print(f"Max scores - Min: {np.min(max_scores):.4f}, Max: {np.max(max_scores):.4f}, Mean: {np.mean(max_scores):.4f}")
+            
+            # Get indices of cells with high confidence
+            high_conf_indices = np.where(max_scores > self.min_confidence)[0]
+            
+            for idx in high_conf_indices:
+                grid_x = idx % grid_size
+                grid_y = idx // grid_size
                 
-                # Get class scores for this cell
-                cell_scores = predictions[0, :, i]
-                
-                # Get max score and class
-                max_score = np.max(cell_scores)
-                class_id = np.argmax(cell_scores)
+                # Get score and class
+                score = max_scores[idx]
+                class_id = class_ids[idx]
                 
                 # Debug cell scores
-                if i < 5:  # Print first 5 cells for debugging
-                    print(f"Cell {i} scores: {cell_scores}")
-                    print(f"Max score: {max_score:.4f}, Class: {class_id}")
-                
-                # Skip if confidence is too low
-                if max_score < self.min_confidence:
-                    continue
+                if len(boxes) < 5:  # Print first 5 detections for debugging
+                    print(f"Detection {len(boxes)} - Score: {score:.4f}, Class: {class_id}")
                 
                 # Convert grid coordinates to pixel coordinates
                 x1 = grid_x * cell_size
@@ -292,7 +291,7 @@ class VideoProcessor:
                     continue
                 
                 boxes.append([x1, y1, x2, y2])
-                scores.append(float(max_score))
+                scores.append(float(score))
                 class_ids.append(int(class_id))
             
             # Debug raw detections
