@@ -358,17 +358,21 @@ class VideoProcessor:
                             elif current_time - self.detection_start_time >= 0.3:  # Reduced from 0.5 to 0.3
                                 if current_obj_id and self.object_trackers[current_obj_id]['stable_count'] >= 3:  # Reduced from 5 to 3
                                     classification = classify_output(current_waste_type, self.current_contamination_score)
-                                    self.object_trackers[current_obj_id]['result'] = {
+                                    result_data = {
                                         'id': current_obj_id,
                                         'waste_type': current_waste_type,
                                         'contamination_score': self.current_contamination_score,
                                         'classification': classification,
                                         'confidence_level': conf if object_detected else 0
                                     }
+                                    self.object_trackers[current_obj_id]['result'] = result_data
                                     self.object_trackers[current_obj_id]['state'] = 'finalized'
                                     self.finalized_ids.add(current_obj_id)
                                     self.finalized_times[current_obj_id] = current_time
-                                    self.emit_detection_result(self.object_trackers[current_obj_id]['result'])
+                                    
+                                    # Emit result only if it's a valid classification
+                                    if classification not in ['Analyzing...', 'No object detected', 'Waiting for: Type', 'Unknown', '-']:
+                                        self.emit_detection_result(result_data)
                                 else:
                                     classification = 'Analyzing...'
                         else:
