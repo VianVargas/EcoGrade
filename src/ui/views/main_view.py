@@ -6,6 +6,7 @@ from src.ui.widgets.base_widgets import RoundedWidget
 from src.ui.widgets.camera_widget import CameraWidget
 from src.ui.widgets.detection_result_widget import DetectionResultWidget
 from src.utils.video_processor import VideoProcessor
+from src.utils.servo_controller import ServoController
 import pyqtgraph as pg
 import numpy as np
 from datetime import datetime, timedelta
@@ -121,6 +122,15 @@ class MainView(QWidget):
         self.detection_interval = 0.1  # Reduce from 0.2 to 0.1
         self.processing_size = (416, 416)  # Increase from (320, 240)
         self.update_interval = 33  # Increase from 50ms to ~30 FPS
+        
+        # Initialize servo controller
+        try:
+            self.servo_controller = ServoController()
+            logger.info("Servo controller initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize servo controller: {e}")
+            self.servo_controller = None
+        
         self.setup_ui()
         self._show_no_object_detected()
         
@@ -520,68 +530,42 @@ class MainView(QWidget):
             logging.error(traceback.format_exc())
             QMessageBox.critical(self, "Error", f"Failed to change camera layout: {str(e)}")
 
-    def update_detection_results(self, result_data):
-        """Update the detection result widgets with new data"""
-        if not result_data:
-            return
+    def update_detection_results(self, results):
+        """Update detection results and control servos"""
+        try:
+            if not results:
+                return
 
-        # Get current detection data
-        current_waste_type = result_data.get('waste_type', 'No object detected')
-        current_classification = result_data.get('classification', 'Analyzing...')
-        current_contamination = result_data.get('contamination_score', 0.0)
-        current_confidence = result_data.get('confidence_level', 0.0)
-
-        # Check if this is a valid detection
-        is_valid_detection = current_classification not in [
-            'Analyzing...', 'No object detected',
-            'Waiting for: Type', 'Waiting for: Transparency',
-            'Waiting for: Type, Transparency', 'Unknown', '-'
-        ]
-
-        # If we get a valid detection, store and display it
-        if is_valid_detection:
-            self.last_valid_detection = {
-                'waste_type': current_waste_type,
-                'classification': current_classification,
-                'contamination_score': current_contamination,
-                'confidence_level': current_confidence
-            }
-            # Show the new valid detection
-            self.waste_type_widget.update_value(current_waste_type)
-            self.classification_widget.update_value(current_classification)
-            if isinstance(current_contamination, (int, float)):
-                self.contamination_widget.update_value(f"{current_contamination:.2f}%")
-            else:
-                self.contamination_widget.update_value("0.00%")
-            # Update confidence
-            if isinstance(current_confidence, (int, float)):
-                self.confidence_widget.update_value(f"{current_confidence:.2f}%")
-            else:
-                self.confidence_widget.update_value("0.00%")
-        # For all other states, show the last valid detection if it exists
-        elif self.last_valid_detection:
-            self.waste_type_widget.update_value(self.last_valid_detection['waste_type'])
-            self.classification_widget.update_value(self.last_valid_detection['classification'])
-            contamination = self.last_valid_detection['contamination_score']
-            confidence = self.last_valid_detection.get('confidence_level', 0.0)
-            if isinstance(contamination, (int, float)):
-                self.contamination_widget.update_value(f"{contamination:.2f}%")
-            else:
-                self.contamination_widget.update_value("0.00%")
-            # Update confidence
-            if isinstance(confidence, (int, float)):
-                self.confidence_widget.update_value(f"{confidence:.2f}%")
-            else:
-                self.confidence_widget.update_value("0.00%")
-        # Only show 'No object detected' if we have no last valid detection
-        else:
-            self._show_no_object_detected()
-
-        # Force immediate update of all widgets
-        self.waste_type_widget.update()
-        self.classification_widget.update()
-        self.contamination_widget.update()
-        self.confidence_widget.update()
+            # Update last detection time
+            self.last_detection_time = datetime.now()
+            
+            # Store the results
+            self.last_valid_detection = results
+            
+            # Update UI widgets
+            self.waste_type_widget.update_value(results.get('waste_type', '-'))
+            self.contamination_widget.update_value(f"{results.get('contamination_score', 0.0):.2f}%")
+            self.classification_widget.update_value(results.get('classification', '-'))
+            self.confidence_widget.update_value(f"{results.get('confidence_level', 0.0):.2f}%")
+            
+            # Control servos based on classification
+            if self.servo_controller:
+                classification = results.get('classification', '').lower()
+                try:
+                    if 'high' in classification:
+                        self.servo_controller.process_command('high')
+                    elif 'mix' in classification:
+                        self.servo_controller.process_command('mix')
+                    elif 'low' in classification:
+                        self.servo_controller.process_command('low')
+                    elif 'reject' in classification:
+                        self.servo_controller.process_command('reject')
+                except Exception as e:
+                    logger.error(f"Error controlling servos: {e}")
+            
+        except Exception as e:
+            logger.error(f"Error updating detection results: {e}")
+            traceback.print_exc()
 
     def _show_no_object_detected(self):
         self.waste_type_widget.update_value('No object detected')
@@ -697,6 +681,15 @@ class MainView(QWidget):
         # Stop all camera widgets
         self.object_detection_camera.stop_camera()
         self.residue_scan_camera.stop_camera()
+        
+        # Clean up servo controller
+        if self.servo_controller:
+            try:
+                self.servo_controller.cleanup()
+                logger.info("Servo controller cleaned up successfully")
+            except Exception as e:
+                logger.error(f"Error cleaning up servo controller: {e}")
+        
         # Clean up app client
         try:
             logging.info("Cleaning up app client connection...")

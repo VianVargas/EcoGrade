@@ -1,10 +1,13 @@
-import RPi.GPIO as GPIO
 import time
+import board
+import busio
 import json
 import threading
 import logging
 from typing import Dict, Optional
 import os
+from adafruit_pca9685 import PCA9685
+from adafruit_motor import servo
 
 class ServoController:
     def __init__(self, config_path: str = 'config/raspberry_pi/gpio_config.json'):
@@ -13,7 +16,12 @@ class ServoController:
         self.running = False
         self.control_thread = None
         self.lock = threading.Lock()
-        self._setup_gpio()
+        
+        # Set up I2C and PCA9685
+        self.i2c = busio.I2C(board.SCL, board.SDA)
+        self.pca = PCA9685(self.i2c)
+        self.pca.frequency = 50
+        
         self._initialize_servos()
         
     def _load_config(self, config_path: str) -> dict:
@@ -25,36 +33,48 @@ class ServoController:
             logging.error(f"Error loading GPIO config: {e}")
             raise
 
-    def _setup_gpio(self):
-        """Initialize GPIO settings"""
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setwarnings(False)
-        
-        # Setup PWM for servos
-        for servo_name, servo_config in self.config['servo_motors'].items():
-            GPIO.setup(servo_config['pin'], GPIO.OUT)
-            pwm = GPIO.PWM(servo_config['pin'], servo_config['pwm_frequency'])
-            pwm.start(0)
-            self.servos[servo_name] = {
-                'pwm': pwm,
-                'current_position': servo_config['default_position'],
-                'target_position': servo_config['default_position'],
-                'config': servo_config,
-                'last_move_time': 0,
-                'operation_count': 0
-            }
-
     def _initialize_servos(self):
-        """Move all servos to default position"""
-        for servo_name in self.servos:
-            self.move_to_position(servo_name, self.servos[servo_name]['config']['default_position'])
-
-    def _angle_to_duty_cycle(self, angle: float) -> float:
-        """Convert angle to PWM duty cycle"""
-        return 2.5 + (angle / 180.0 * 10.0)
+        """Initialize servos using PCA9685"""
+        # Create servo objects for main arm and flap
+        self.servos['main_arm'] = {
+            'servo': servo.Servo(self.pca.channels[0]),
+            'current_position': 120,
+            'target_position': 120,
+            'config': {
+                'min_angle': 0,
+                'max_angle': 180,
+                'default_position': 120,
+                'sort_position': 60,
+                'safety': {
+                    'cooldown_time': 0.1
+                }
+            },
+            'last_move_time': 0
+        }
+        
+        self.servos['flap'] = {
+            'servo': servo.Servo(self.pca.channels[4]),
+            'current_position': 103,
+            'target_position': 103,
+            'config': {
+                'min_angle': 0,
+                'max_angle': 180,
+                'default_position': 103,
+                'sort_position': 50,
+                'safety': {
+                    'cooldown_time': 0.1
+                }
+            },
+            'last_move_time': 0
+        }
+        
+        # Move to default positions
+        self.move_to_position('main_arm', 120)
+        self.move_to_position('flap', 103)
+        time.sleep(2)  # Wait for servos to reach position
 
     def move_to_position(self, servo_name: str, position: float, speed: Optional[float] = None):
-        """Move servo to specified position with speed control"""
+        """Move servo to specified position"""
         if servo_name not in self.servos:
             raise ValueError(f"Unknown servo: {servo_name}")
 
@@ -74,11 +94,9 @@ class ServoController:
             # Update servo state
             servo['target_position'] = position
             servo['last_move_time'] = current_time
-            servo['operation_count'] += 1
             
             # Apply movement
-            duty_cycle = self._angle_to_duty_cycle(position)
-            servo['pwm'].ChangeDutyCycle(duty_cycle)
+            servo['servo'].angle = position
             servo['current_position'] = position
 
     def move_to_sort_position(self, servo_name: str):
@@ -89,23 +107,74 @@ class ServoController:
         sort_position = self.servos[servo_name]['config']['sort_position']
         self.move_to_position(servo_name, sort_position)
 
+    def process_command(self, command: str):
+        """Process sorting commands"""
+        if command == "high":
+            logging.info("HIGH: Main arm → Left, Flap → Left")
+            self.move_to_position('main_arm', 60)
+            time.sleep(1.75)
+            self.move_to_position('flap', 50)
+            time.sleep(1)
+            self.move_to_position('flap', 103)
+            time.sleep(1)
+            self.move_to_position('main_arm', 120)
+            time.sleep(1.75)
+
+        elif command == "mix":
+            logging.info("MIX: Main arm → Left, Flap → Right")
+            self.move_to_position('main_arm', 60)
+            time.sleep(1.75)
+            self.move_to_position('flap', 150)
+            time.sleep(1)
+            self.move_to_position('flap', 103)
+            time.sleep(1)
+            self.move_to_position('main_arm', 120)
+            time.sleep(1.75)
+
+        elif command == "low":
+            logging.info("LOW: Main arm → Right, Flap → Left")
+            self.move_to_position('main_arm', 180)
+            time.sleep(1.75)
+            self.move_to_position('flap', 50)
+            time.sleep(1)
+            self.move_to_position('flap', 103)
+            time.sleep(1)
+            self.move_to_position('main_arm', 120)
+            time.sleep(1.75)
+
+        elif command == "reject":
+            logging.info("REJECT: Main arm → Right, Flap → Right")
+            self.move_to_position('main_arm', 180)
+            time.sleep(1.75)
+            self.move_to_position('flap', 150)
+            time.sleep(1)
+            self.move_to_position('flap', 103)
+            time.sleep(1)
+            self.move_to_position('main_arm', 120)
+            time.sleep(1.75)
+
+        else:
+            logging.warning(f"Invalid command: {command}")
+
     def emergency_stop(self):
         """Emergency stop all servos"""
         with self.lock:
             for servo_name, servo in self.servos.items():
-                servo['pwm'].ChangeDutyCycle(0)
+                servo['servo'].angle = None  # Release servo
                 logging.warning(f"Emergency stop activated for {servo_name}")
 
     def cleanup(self):
-        """Clean up GPIO resources"""
+        """Clean up resources"""
         self.running = False
         if self.control_thread:
             self.control_thread.join()
         
+        # Release all servos
         for servo in self.servos.values():
-            servo['pwm'].stop()
+            servo['servo'].angle = None
         
-        GPIO.cleanup()
+        # Deinitialize PCA9685
+        self.pca.deinit()
 
     def get_position(self, servo_name: str) -> float:
         """Get current position of servo"""
