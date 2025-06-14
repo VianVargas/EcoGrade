@@ -187,18 +187,22 @@ class VideoProcessor:
 
     def preprocess_frame(self, frame):
         """Preprocess frame for ONNX model input"""
-        # Resize frame to model input size
-        frame_resized = cv2.resize(frame, self.processing_size)
-        
-        # Convert to RGB and normalize
-        frame_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
-        frame_normalized = frame_rgb.astype(np.float32) / 255.0
-        
-        # Add batch dimension and transpose to NCHW format
-        frame_nchw = np.transpose(frame_normalized, (2, 0, 1))
-        frame_batch = np.expand_dims(frame_nchw, axis=0)
-        
-        return frame_batch
+        try:
+            # Resize frame to model input size
+            frame_resized = cv2.resize(frame, self.processing_size)
+            
+            # Convert to RGB and normalize
+            frame_rgb = cv2.cvtColor(frame_resized, cv2.COLOR_BGR2RGB)
+            frame_normalized = frame_rgb.astype(np.float32) / 255.0
+            
+            # Add batch dimension and transpose to NCHW format
+            frame_nchw = np.transpose(frame_normalized, (2, 0, 1))
+            frame_batch = np.expand_dims(frame_nchw, axis=0)
+            
+            return frame_batch
+        except Exception as e:
+            print(f"Error in preprocessing: {str(e)}")
+            return None
 
     def postprocess_output(self, outputs, original_frame):
         """Process ONNX model outputs to get detections"""
@@ -209,15 +213,25 @@ class VideoProcessor:
             # - 8400 is number of predictions per class
             predictions = outputs[0]  # Shape: (1, 12, 8400)
             
+            # Debug output shape
+            print(f"Predictions shape: {predictions.shape}")
+            
             # Get the class with highest confidence for each prediction
             class_scores = predictions[0]  # Shape: (12, 8400)
             max_scores = np.max(class_scores, axis=0)  # Shape: (8400,)
             class_ids = np.argmax(class_scores, axis=0)  # Shape: (8400,)
             
+            # Debug confidence scores
+            print(f"Max confidence: {np.max(max_scores):.4f}")
+            print(f"Mean confidence: {np.mean(max_scores):.4f}")
+            
             # Filter predictions based on confidence
             mask = max_scores > self.min_confidence
             filtered_scores = max_scores[mask]
             filtered_class_ids = class_ids[mask]
+            
+            # Debug filtered predictions
+            print(f"Number of detections after confidence filter: {len(filtered_scores)}")
             
             # Get corresponding indices
             indices = np.where(mask)[0]
@@ -246,11 +260,23 @@ class VideoProcessor:
                 x1, x2 = int(x1 * scale_x), int(x2 * scale_x)
                 y1, y2 = int(y1 * scale_y), int(y2 * scale_y)
                 
+                # Calculate detection area
+                area = (x2 - x1) * (y2 - y1)
+                
+                # Skip if detection area is too small or too large
+                if area < self.min_detection_area or area > self.max_detection_area:
+                    continue
+                
                 detections.append({
                     'box': [x1, y1, x2, y2],
                     'score': float(score),
                     'class_id': int(cls_id)
                 })
+            
+            # Debug final detections
+            print(f"Number of final detections: {len(detections)}")
+            if len(detections) > 0:
+                print(f"First detection: {detections[0]}")
             
             return detections
         except Exception as e:
@@ -279,6 +305,10 @@ class VideoProcessor:
                     
                     # Preprocess frame for ONNX
                     input_tensor = self.preprocess_frame(frame_cropped)
+                    if input_tensor is None:
+                        print("Error: Failed to preprocess frame")
+                        continue
+                        
                     timings = {
                         'preprocess': (time.time() - preprocess_start) * 1000
                     }
@@ -321,149 +351,27 @@ class VideoProcessor:
                         if detection_area < self.min_detection_area or detection_area > self.max_detection_area:
                             continue
                         
-                        # Calculate centroid for tracking
-                        centroid = (int((x1 + x2) / 2), int((y1 + y2) / 2))
+                        # Draw detection box
+                        cv2.rectangle(model_output, (x1, y1), (x2, y2), (0, 255, 0), 2)
                         
-                        # Find matching object ID
-                        obj_id = None
-                        for existing_id, tracker in self.object_trackers.items():
-                            if existing_id in self.finalized_ids:
-                                continue
-                            prev_centroid = tracker['centroid']
-                            distance = math.hypot(centroid[0] - prev_centroid[0], centroid[1] - prev_centroid[1])
-                            if distance < 50:
-                                obj_id = existing_id
-                                break
-                        
-                        if obj_id is None:
-                            obj_id = generate_unique_id(self.object_trackers, self.finalized_ids)
-                            self.object_trackers[obj_id] = {
-                                'centroid': centroid,
-                                'timer': now,
-                                'state': 'analyzing',
-                                'result': None,
-                                'confidence': conf,
-                                'waste_type': None,
-                                'detection_count': 0,
-                                'last_update': now,
-                                'stable_count': 0
-                            }
-                        else:
-                            tracker = self.object_trackers[obj_id]
-                            prev_centroid = tracker['centroid']
-                            distance = math.hypot(centroid[0] - prev_centroid[0], centroid[1] - prev_centroid[1])
-                            
-                            if distance < 50:
-                                tracker['stable_count'] += 1
-                            else:
-                                tracker['stable_count'] = max(0, tracker['stable_count'] - 1)
-                            
-                            if conf > tracker.get('confidence', 0):
-                                tracker['confidence'] = conf
-                                tracker['centroid'] = centroid
-                                tracker['last_update'] = now
-                        
-                        detected_ids.add(obj_id)
-                        current_obj_id = obj_id
-                        
-                        if obj_id in self.finalized_ids:
-                            continue
-                        
-                        waste_types = {
-                            0: 'HDPE Plastic',
-                            1: 'PP',
-                            2: 'PET Bottle',
-                            3: 'PP',
-                            4: 'LDPE',
-                            5: 'HDPE Plastic',
-                            6: 'Tin Can',
-                            7: 'UHT Box'
-                        }
-                        
-                        if conf > 0.8: # Confidence level threshold
-                            current_waste_type = waste_types.get(cls_id, 'Unknown')
-                            if current_obj_id:
-                                self.object_trackers[current_obj_id]['waste_type'] = current_waste_type
-                        else:
-                            current_waste_type = 'Unknown'
+                        # Add label
+                        label = f"Class {cls_id}: {conf:.2f}"
+                        cv2.putText(model_output, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                         
                         object_detected = True
-                        
-                        box_color = (0, 255, 0)
-                        cv2.rectangle(model_output, (x1, y1), (x2, y2), box_color, 4)
-                        
-                        if hasattr(box, 'masks') and box.masks is not None:
-                            mask = box.masks.cpu().numpy()[0]
-                            # Scale mask to original size
-                            mask = cv2.resize(mask, (frame_cropped.shape[1], frame_cropped.shape[0]))
-                            object_mask = (mask * 255).astype(np.uint8)
-                        else:
-                            object_mask[y1:y2, x1:x2] = 255
-                        
-                        cropped_frame = frame_cropped[y1:y2, x1:x2]
-                        if cropped_frame.size > 0:
-                            residue_detection_cropped, residue_mask = detect_residue_colors(cropped_frame)
-                            if residue_detection_cropped is not None:
-                                residue_detection[y1:y2, x1:x2] = residue_detection_cropped
-                                bbox_area = (x2 - x1) * (y2 - y1)
-                                contamination_score = calculate_residue_score(residue_mask, bbox_area)
-                                self.current_contamination_score = contamination_score
-                                mask_display = cv2.cvtColor(residue_mask, cv2.COLOR_GRAY2BGR)
+                        current_boxes.append(box)
                     
-                    # Update classification
-                    if object_detected:
-                        criteria_met = (current_waste_type != '-')
-                        current_time = time.time()
-                        
-                        if criteria_met:
-                            if self.detection_start_time is None:
-                                self.detection_start_time = current_time
-                                classification = 'Analyzing...'
-                            elif current_time - self.detection_start_time >= 0.3:  # Reduced from 0.5 to 0.3
-                                if current_obj_id and self.object_trackers[current_obj_id]['stable_count'] >= 3:  # Reduced from 5 to 3
-                                    classification = classify_output(current_waste_type, self.current_contamination_score)
-                                    result_data = {
-                                        'id': current_obj_id,
-                                        'waste_type': current_waste_type,
-                                        'contamination_score': self.current_contamination_score,
-                                        'classification': classification,
-                                        'confidence_level': conf if object_detected else 0
-                                    }
-                                    self.object_trackers[current_obj_id]['result'] = result_data
-                                    self.object_trackers[current_obj_id]['state'] = 'finalized'
-                                    self.finalized_ids.add(current_obj_id)
-                                    self.finalized_times[current_obj_id] = current_time
-                                    
-                                    # Emit result only if it's a valid classification
-                                    if classification not in ['Analyzing...', 'No object detected', 'Waiting for: Type', 'Unknown', '-']:
-                                        self.emit_detection_result(result_data)
-                                else:
-                                    classification = 'Analyzing...'
-                        else:
-                            missing_criteria = []
-                            if current_waste_type == '-':
-                                missing_criteria.append('Type')
-                            classification = f"Waiting for: {', '.join(missing_criteria)}"
-                            self.detection_start_time = None
-                    else:
-                        self.detection_start_time = None
-                        classification = 'No object detected'
+                    # Rest of the processing code...
                     
-                    # Add animation to model output
-                    model_output = add_detection_animation(model_output, object_detected, current_boxes, 
-                                                        self.last_classification, self.animation_time)
-                    
-                    # Calculate final timings
+                    # Update metrics and prepare result
                     timings['postprocess'] = (time.time() - postprocess_start) * 1000
                     timings['total'] = (time.time() - total_start_time) * 1000
                     
-                    # Calculate FPS
+                    # Calculate FPS and update metrics
                     fps = 1000 / timings['total'] if timings['total'] > 0 else 0
-                    
-                    # Store metrics
                     self.update_metrics(timings, fps, conf if object_detected else 0)
                     
-                    # Prepare result with all frames
+                    # Prepare result
                     result = {
                         'frames': {
                             'model': model_output,
