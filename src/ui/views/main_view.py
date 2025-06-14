@@ -556,8 +556,14 @@ class MainView(QWidget):
         # Update servo control based on classification
         if hasattr(self, 'servo_controller') and self.servo_controller:
             classification = result.get('classification', '-')
+            # Only process valid classifications
             if classification in ['high', 'mix', 'low', 'reject']:
-                self.servo_controller.process_command(classification)
+                try:
+                    logging.info(f"Processing servo command: {classification}")
+                    self.servo_controller.process_command(classification)
+                    logging.info(f"Servo command {classification} executed successfully")
+                except Exception as e:
+                    logging.error(f"Error executing servo command {classification}: {e}")
                 
         # Force immediate UI update
         QApplication.processEvents()

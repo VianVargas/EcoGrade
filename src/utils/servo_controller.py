@@ -32,7 +32,7 @@ class ServoController:
         try:
             # Create servo objects for main arm and flap
             self.servos['main_arm'] = {
-                'servo': servo.Servo(self.pca.channels[0], min_pulse=500, max_pulse=2500),
+                'servo': servo.Servo(self.pca.channels[0]),
                 'current_position': 120,
                 'target_position': 120,
                 'config': {
@@ -48,7 +48,7 @@ class ServoController:
             }
             
             self.servos['flap'] = {
-                'servo': servo.Servo(self.pca.channels[4], min_pulse=500, max_pulse=2500),
+                'servo': servo.Servo(self.pca.channels[4]),
                 'current_position': 103,
                 'target_position': 103,
                 'config': {
@@ -123,9 +123,9 @@ class ServoController:
                 self.move_to_position('main_arm', 60)
                 time.sleep(1.75)
                 self.move_to_position('flap', 50)
-                time.sleep(0.5)
+                time.sleep(1)
                 self.move_to_position('flap', 103)
-                time.sleep(0.5)
+                time.sleep(1)
                 self.move_to_position('main_arm', 120)
                 time.sleep(1.75)
 
@@ -134,9 +134,9 @@ class ServoController:
                 self.move_to_position('main_arm', 60)
                 time.sleep(1.75)
                 self.move_to_position('flap', 150)
-                time.sleep(0.5)
+                time.sleep(1)
                 self.move_to_position('flap', 103)
-                time.sleep(0.5)
+                time.sleep(1)
                 self.move_to_position('main_arm', 120)
                 time.sleep(1.75)
 
@@ -145,9 +145,9 @@ class ServoController:
                 self.move_to_position('main_arm', 180)
                 time.sleep(1.75)
                 self.move_to_position('flap', 50)
-                time.sleep(0.5)
+                time.sleep(1)
                 self.move_to_position('flap', 103)
-                time.sleep(0.5)
+                time.sleep(1)
                 self.move_to_position('main_arm', 120)
                 time.sleep(1.75)
 
@@ -156,9 +156,9 @@ class ServoController:
                 self.move_to_position('main_arm', 180)
                 time.sleep(1.75)
                 self.move_to_position('flap', 150)
-                time.sleep(0.5)
+                time.sleep(1)
                 self.move_to_position('flap', 103)
-                time.sleep(0.5)
+                time.sleep(1)
                 self.move_to_position('main_arm', 120)
                 time.sleep(1.75)
 
