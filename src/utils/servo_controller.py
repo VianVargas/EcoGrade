@@ -1,7 +1,6 @@
 import time
 import board
 import busio
-import json
 import threading
 import logging
 from typing import Dict, Optional
@@ -10,8 +9,7 @@ from adafruit_pca9685 import PCA9685
 from adafruit_motor import servo
 
 class ServoController:
-    def __init__(self, config_path: str = 'config/raspberry_pi/gpio_config.json'):
-        self.config = self._load_config(config_path)
+    def __init__(self):
         self.servos: Dict[str, Dict] = {}
         self.running = False
         self.control_thread = None
@@ -24,15 +22,6 @@ class ServoController:
         
         self._initialize_servos()
         
-    def _load_config(self, config_path: str) -> dict:
-        """Load GPIO configuration from JSON file"""
-        try:
-            with open(config_path, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            logging.error(f"Error loading GPIO config: {e}")
-            raise
-
     def _initialize_servos(self):
         """Initialize servos using PCA9685"""
         # Create servo objects for main arm and flap
