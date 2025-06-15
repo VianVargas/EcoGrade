@@ -9,51 +9,10 @@ from .views.about_view import AboutView
 import sys
 import logging
 import traceback
-import sqlite3
-from PyQt5.QtWidgets import QAction
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("EcoGrade")
-        self.setFixedSize(1280, 720)  # Fixed size at 1280x720
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowMaximizeButtonHint & ~Qt.WindowMinimizeButtonHint)  # Disable maximize and minimize buttons
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #1a1a1a;
-            }
-            QMenuBar {
-                background-color: #2d2d2d;
-                color: #ffffff;
-            }
-            QMenuBar::item:selected {
-                background-color: #3d3d3d;
-            }
-            QMenu {
-                background-color: #2d2d2d;
-                color: #ffffff;
-            }
-            QMenu::item:selected {
-                background-color: #3d3d3d;
-            }
-        """)
-        
-        # Initialize database connection
-        self.db_connection = sqlite3.connect('data/measurements.db')
-        
-        # Create main view
-        self.main_view = MainView(self)
-        self.setCentralWidget(self.main_view)
-        
-        # Create menu bar
-        self.create_menu_bar()
-        
-        # Set window icon
-        self.setWindowIcon(QIcon('assets/icon.png'))
-        
-        # Initialize status bar
-        #self.statusBar().showMessage('Ready')
-        
         self.current_view = "front"
         self.initUI()
         
@@ -63,9 +22,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('EcoGrade')
         self.setWindowIcon(QIcon('src/ui/assets/LOGO.ico'))
         
-        # Set fixed size and disable resizing
-        self.setFixedSize(1280, 720)  # Fixed size at 1280x720
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowMaximizeButtonHint & ~Qt.WindowMinimizeButtonHint)  # Disable maximize and minimize buttons
+        # Set minimum and maximum window size
+        self.setMinimumSize(1400, 900)  # Minimum size to ensure UI elements are visible
+        self.setMaximumSize(1920, 1080)  # Maximum size to prevent excessive scaling
         
         # Create main layout
         main_layout = QHBoxLayout()
@@ -97,6 +56,10 @@ class MainWindow(QMainWindow):
         
         # Center the window on screen
         self.center()
+        
+        # Start in maximized state
+        self.showMaximized()
+        self.setWindowState(Qt.WindowMaximized)
         
         # Show front page and hide sidebar initially
         self.show_front_page()
@@ -210,64 +173,9 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Handle window close event"""
-        try:
-            # Stop video processing
-            if hasattr(self, 'main_view') and hasattr(self.main_view, 'video_processor'):
-                self.main_view.video_processor.stop()
-                self.main_view.video_processor.release_camera()
-            
-            # Close database connection
-            if hasattr(self, 'db_connection'):
-                self.db_connection.close()
-            
-            # Accept the close event
-            event.accept()
-        except Exception as e:
-            print(f"Error during cleanup: {str(e)}")
-            event.accept()
-
-    def create_menu_bar(self):
-        """Create the menu bar with File and View menus"""
-        menubar = self.menuBar()
-        
-        # File menu
-        file_menu = menubar.addMenu('File')
-        
-        # Exit action
-        exit_action = QAction('Exit', self)
-        exit_action.setShortcut('Ctrl+Q')
-        exit_action.triggered.connect(self.close)
-        file_menu.addAction(exit_action)
-        
-        # View menu
-        view_menu = menubar.addMenu('View')
-        
-        # Toggle camera view action
-        toggle_view_action = QAction('Toggle Camera View', self)
-        toggle_view_action.setShortcut('Ctrl+V')
-        toggle_view_action.triggered.connect(self.toggle_camera_view)
-        view_menu.addAction(toggle_view_action)
-        
-        # Help menu
-        help_menu = menubar.addMenu('Help')
-        
-        # About action
-        about_action = QAction('About', self)
-        about_action.triggered.connect(self.show_about)
-        help_menu.addAction(about_action)
-
-    def toggle_camera_view(self):
-        """Toggle between single and dual camera views"""
-        if hasattr(self, 'main_view'):
-            self.main_view.toggle_camera_view()
-
-    def show_about(self):
-        """Show about dialog"""
-        QMessageBox.about(self, 'About EcoGrade',
-            'EcoGrade - Waste Classification System\n\n'
-            'Version 1.0\n'
-            '© 2024 QuadPals\n\n'
-            'A real-time waste classification system using computer vision.')
+        if hasattr(self, 'main_view') and hasattr(self.main_view, 'video_processor'):
+            self.main_view.video_processor.stop()
+        event.accept()
 
 def main():
     app = QApplication(sys.argv)
