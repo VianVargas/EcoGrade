@@ -6,7 +6,7 @@ from src.ui.widgets.base_widgets import RoundedWidget
 from src.ui.widgets.camera_widget import CameraWidget
 from src.ui.widgets.detection_result_widget import DetectionResultWidget
 from src.utils.video_processor import VideoProcessor
-from src.utils.servo_controller import ServoController  # Uncommented for Raspberry Pi
+from src.utils.servo_controller import ServoController
 import pyqtgraph as pg
 import numpy as np
 from datetime import datetime, timedelta
@@ -39,7 +39,7 @@ class SvgButton(QPushButton):
         self._hovered = False
         self.wave_timer = QTimer(self)
         self.wave_timer.timeout.connect(self.updateWave)
-        self.wave_timer.setInterval(33)  # Reduced from 16ms to 33ms (~30 FPS)
+        self.wave_timer.setInterval(16)
         
     def set_svg_path(self, svg_path):
         self.svg_path = svg_path
@@ -106,7 +106,7 @@ class SvgButton(QPushButton):
         super().leaveEvent(event)
 
     def updateWave(self):
-        self._wave_phase += 0.03  # Reduced from 0.05 to 0.03
+        self._wave_phase += 0.05
         self.update()
 
 class MainView(QWidget):
@@ -121,10 +121,6 @@ class MainView(QWidget):
         self.detection_interval = 0.1  # Reduce from 0.2 to 0.1
         self.processing_size = (416, 416)  # Increase from (320, 240)
         self.update_interval = 33  # Increase from 50ms to ~30 FPS
-        
-        # Add cooldown tracking
-        self.last_servo_command_time = 0
-        self.servo_cooldown = 2.0  # 2 seconds cooldown between servo commands
         
         # Initialize servo controller
         try:
@@ -163,11 +159,9 @@ class MainView(QWidget):
         self.left_layout.setContentsMargins(20, 20, 20, 20)
         self.left_layout.setSpacing(15)
         
-        # Create camera layout container with analytics styling - adjusted for 1280x720 (accounting for sidebar)
+        # Create camera layout container with analytics styling //0f172a, border: 2px solid #10b981;
         self.camera_container = QWidget()
-        # Total window width is 1280, sidebar is 80, so content area is 1200
-        # Left widget takes about 70% of content area, minus margins and spacing
-        self.camera_container.setMinimumSize(800, 500)  # Adjusted for available space in 1280x720 window
+        self.camera_container.setMinimumSize(500, 400)  # Reduced from 700, 500
         self.camera_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.camera_container.setStyleSheet("""
             QWidget {
@@ -268,7 +262,7 @@ class MainView(QWidget):
         """)
         right_layout = QVBoxLayout(right_widget)
         right_layout.setSpacing(20)
-        right_layout.setContentsMargins(0, 100, 0, 80)
+        right_layout.setContentsMargins(0, 250, 0, 200)
         
         # Detection result panels with analytics design
         self.waste_type_widget = self.create_result_panel("WASTE TYPE:", "No object detected")
@@ -389,7 +383,7 @@ class MainView(QWidget):
         """)
 
     def setup_camera_layout(self):
-        """Setup the camera layout based on current state - adjusted for 1280x720 window"""
+        """Setup the camera layout based on current state"""
         # Store current detection state
         is_detecting = hasattr(self, 'start_btn') and self.start_btn.icon() == self.camera_on_icon
         
@@ -409,6 +403,10 @@ class MainView(QWidget):
             # Then delete the layout itself
             QWidget().setLayout(self.camera_container.layout())
         
+        # Calculate camera sizes based on container size
+        container_width = self.camera_container.width() - 40  # Account for padding
+        container_height = self.camera_container.height() - 40  # Account for padding
+        
         # Create camera widgets if they don't exist
         if not hasattr(self, 'object_detection_camera'):
             self.object_detection_camera = CameraWidget(view_type="object_detection", video_processor=self.video_processor)
@@ -423,15 +421,14 @@ class MainView(QWidget):
         self.residue_scan_camera.setParent(self.camera_container)
         
         if self.is_two_camera_layout:
-            # Two camera layout - HORIZONTAL (left and right) - adjusted for 1280x720 window
+            # Two camera layout - HORIZONTAL (left and right)
             camera_layout = QHBoxLayout()
             camera_layout.setSpacing(15)
             camera_layout.setContentsMargins(20, 20, 20, 20)
             
-            # Set sizes for two camera horizontal layout (accounting for available space)
-            # Camera container is ~800px wide, so each camera gets ~380px width
-            camera_width = 380  # Half of available width minus spacing
-            camera_height = 440  # Proportional height
+            # Set sizes for two camera horizontal layout
+            camera_width = 510  # Half of 680
+            camera_height = 600
             self.object_detection_camera.setFixedSize(camera_width, camera_height)
             self.residue_scan_camera.setFixedSize(camera_width, camera_height)
             
@@ -455,14 +452,14 @@ class MainView(QWidget):
                 self.object_detection_camera.start_camera()
                 self.residue_scan_camera.start_camera()
         else:
-            # Single camera layout - adjusted for 1280x720 window
+            # Single camera layout
             camera_layout = QVBoxLayout()
             camera_layout.setSpacing(5)
-            camera_layout.setContentsMargins(50, 20, 20, 20)
+            camera_layout.setContentsMargins(100, 20, 20, 20)
             
-            # Set size for single camera layout (using available container space)
-            self.object_detection_camera.setFixedSize(720, 460)  # Fits within container
-            self.object_detection_camera.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            # Set size for single camera layout
+            self.object_detection_camera.setFixedSize(1000, 700)  # Set specific size for main camera
+            self.object_detection_camera.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # Prevent resizing
             
             # Add only the main camera
             camera_layout.addWidget(self.object_detection_camera)
@@ -533,7 +530,7 @@ class MainView(QWidget):
             QMessageBox.critical(self, "Error", f"Failed to change camera layout: {str(e)}")
 
     def update_detection_results(self, results):
-        """Update UI with detection results and control servos"""
+        """Update detection results and control servos"""
         try:
             if not results:
                 return
@@ -554,7 +551,6 @@ class MainView(QWidget):
             if self.servo_controller:
                 classification = results.get('classification', '').lower()
                 try:
-                    # Map classification to servo command
                     if 'high' in classification:
                         self.servo_controller.process_command('high')
                     elif 'mix' in classification:
@@ -563,11 +559,8 @@ class MainView(QWidget):
                         self.servo_controller.process_command('low')
                     elif 'reject' in classification:
                         self.servo_controller.process_command('reject')
-                    else:
-                        logger.warning(f"Unknown classification: {classification}")
                 except Exception as e:
                     logger.error(f"Error controlling servos: {e}")
-                    traceback.print_exc()
             
         except Exception as e:
             logger.error(f"Error updating detection results: {e}")

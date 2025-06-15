@@ -138,18 +138,16 @@ class FrontPageWidget(QWidget):
         ]
 
     def initAnimations(self):
-        # Reduced animation speed for blob effect
+        """Initialize animation timers"""
+        self._wobble_phase = 0.0
         self.blob_timer = QTimer(self)
         self.blob_timer.timeout.connect(self.updateBlobAnimation)
-        self.blob_timer.start(33)  # Reduced from 16ms to 33ms (~30 FPS)
-
-        # Reduced animation speed for rain effect
-        self.rain_timer = QTimer(self)
-        self.rain_timer.timeout.connect(self._update_raindrops)
-        self.rain_timer.start(33)  # Reduced from 16ms to 33ms (~30 FPS)
+        self.blob_timer.start(16)  # ~60 FPS
 
     def updateBlobAnimation(self):
-        self._wobble_phase += 0.02  # Reduced from 0.03 to 0.02
+        """Update animation state for each frame"""
+        self._wobble_phase += 0.03
+        self._update_raindrops()
         self.update()
 
     def _update_raindrops(self):
@@ -162,7 +160,7 @@ class FrontPageWidget(QWidget):
                 drop['x'] = random.randint(0, width)
                 drop['y'] = random.randint(-40, 0)
                 drop['length'] = random.randint(8, 21)
-                drop['speed'] = random.uniform(1.5, 3.0)  # Reduced from 2.0-4.0 to 1.5-3.0
+                drop['speed'] = random.uniform(2.0, 4.0)  # Slower speed
                 drop['thickness'] = random.uniform(1.5, 2.5)
                 drop['alpha'] = random.randint(80, 160)
 

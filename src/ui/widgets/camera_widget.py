@@ -12,7 +12,7 @@ class CameraWidget(QLabel):
     def __init__(self, view_type="object_detection", video_processor=None, parent=None):
         super().__init__(parent)
         self.view_type = view_type
-        self.setFixedSize(640, 360)  # Fixed size at 640x360
+        self.setMinimumSize(200, 150)
         
         # Create glow effect
         self.glow_effect = QGraphicsDropShadowEffect()
@@ -43,7 +43,7 @@ class CameraWidget(QLabel):
         self.camera_started = False
         self.error_message = None
         self.last_update_time = 0
-        self.update_interval = 50  # Increased from 33ms to 50ms (20 FPS)
+        self.update_interval = 33  # Increased from 50ms to ~30 FPS
         self.frame_buffer = None
         self.processing_frame = False
     

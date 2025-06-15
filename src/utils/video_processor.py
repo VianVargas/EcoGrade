@@ -346,10 +346,6 @@ class VideoProcessor:
                                         self.current_contamination_score = contamination_score
                                         mask_display = cv2.cvtColor(residue_mask, cv2.COLOR_GRAY2BGR)
                     
-                    # Add animation to model output
-                    model_output = add_detection_animation(model_output, object_detected, current_boxes, 
-                                                        self.last_classification, self.animation_time)
-                    
                     # Update classification
                     if object_detected:
                         criteria_met = (current_waste_type != '-')
@@ -360,23 +356,19 @@ class VideoProcessor:
                                 self.detection_start_time = current_time
                                 classification = 'Analyzing...'
                             elif current_time - self.detection_start_time >= 0.5:
-                                if current_obj_id and self.object_trackers[current_obj_id]['stable_count'] >= 5:
+                                if current_obj_id and self.object_trackers[current_obj_id]['stable_count'] >= 5:  # Increased from 3
                                     classification = classify_output(current_waste_type, self.current_contamination_score)
-                                    result_data = {
+                                    self.object_trackers[current_obj_id]['result'] = {
                                         'id': current_obj_id,
                                         'waste_type': current_waste_type,
                                         'contamination_score': self.current_contamination_score,
                                         'classification': classification,
                                         'confidence_level': conf if object_detected else 0
                                     }
-                                    self.object_trackers[current_obj_id]['result'] = result_data
                                     self.object_trackers[current_obj_id]['state'] = 'finalized'
                                     self.finalized_ids.add(current_obj_id)
                                     self.finalized_times[current_obj_id] = current_time
-                                    
-                                    # Emit result only if it's a valid classification
-                                    if classification not in ['Analyzing...', 'No object detected', 'Waiting for: Type', 'Unknown', '-']:
-                                        self.emit_detection_result(result_data)
+                                    self.emit_detection_result(self.object_trackers[current_obj_id]['result'])
                                 else:
                                     classification = 'Analyzing...'
                         else:
@@ -388,6 +380,10 @@ class VideoProcessor:
                     else:
                         self.detection_start_time = None
                         classification = 'No object detected'
+                    
+                    # Add animation to model output
+                    model_output = add_detection_animation(model_output, object_detected, current_boxes, 
+                                                        self.last_classification, self.animation_time)
                     
                     # Calculate final timings
                     timings['postprocess'] = (time.time() - postprocess_start) * 1000
