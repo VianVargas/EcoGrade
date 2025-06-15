@@ -1,10 +1,13 @@
 from PyQt5.QtWidgets import QLabel, QGraphicsDropShadowEffect
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QSize
-from PyQt5.QtGui import QImage, QPixmap, QColor, QFont, QPainter
+from PyQt5.QtGui import QImage, QPixmap, QColor, QFont
 import cv2
 import numpy as np
 from src.utils.video_processor import VideoProcessor
 import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 class CameraWidget(QLabel):
     result_updated = pyqtSignal(dict)  # Signal to emit detection results
@@ -13,7 +16,7 @@ class CameraWidget(QLabel):
         super().__init__(parent)
         self.view_type = view_type
         self.setMinimumSize(640, 360)  # 16:9 aspect ratio
-        self.setMaximumSize(640, 360)  # Fixed size
+        self.setMaximumSize(640, 360)
         
         # Create glow effect
         self.glow_effect = QGraphicsDropShadowEffect()
@@ -37,17 +40,23 @@ class CameraWidget(QLabel):
         self.setAlignment(Qt.AlignCenter)
         self.setFont(QFont('Fredoka', 12, QFont.Bold))
         self.setText(f"{view_type.replace('_', ' ').title()} View")
-
+        
+        # Initialize video processor
         self.video_processor = video_processor
+        self.is_running = False
+        self.frame_count = 0
+        self.last_detection_time = None
+        self.last_valid_detection = None
+        self.detection_cooldown = 1.0  # 1 second cooldown between detections
+        
+        # Initialize timer for updates
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.update_frame)
-        self.camera_started = False
-        self.error_message = None
-        self.last_update_time = 0
-        self.update_interval = 33  # ~30 FPS
-        self.frame_buffer = None
-        self.processing_frame = False
-    
+        self.update_timer.setInterval(33)  # ~30 FPS
+        
+        # Start camera
+        self.start_camera()
+
     def enterEvent(self, event):
         # Increase glow on hover
         self.glow_effect.setBlurRadius(25)
@@ -61,121 +70,92 @@ class CameraWidget(QLabel):
         super().leaveEvent(event)
     
     def start_camera(self):
-        if self.camera_started:
-            return
+        """Start the camera and processing"""
         try:
-            if self.video_processor:
-                self.clear()
-                self.setText("")
-                self.update()
-                
-                # Start camera with reduced update frequency
-                self.update_timer.start(self.update_interval)
-                self.camera_started = True
-                self.glow_effect.setEnabled(True)
-            else:
-                self.setText("No VideoProcessor")
+            if not self.is_running:
+                self.is_running = True
+                self.update_timer.start()
+                logger.info(f"{self.view_type} camera started")
         except Exception as e:
-            self.error_message = str(e)
-            print(f"Error starting camera widget: {self.error_message}")
-            self.setText(f"Camera Error\n{self.error_message}")
-            self.camera_started = False
-            self.update_timer.stop()
-    
+            logger.error(f"Error starting camera: {e}")
+            self.is_running = False
+
+    def stop_camera(self):
+        """Stop the camera and processing"""
+        try:
+            if self.is_running:
+                self.is_running = False
+                self.update_timer.stop()
+                logger.info(f"{self.view_type} camera stopped")
+        except Exception as e:
+            logger.error(f"Error stopping camera: {e}")
+
     def update_frame(self):
         """Update the camera frame"""
-        if not self.video_processor or not self.video_processor.latest_result:
-            return
-
         try:
-            result = self.video_processor.latest_result
-            frame = result['frames'].get(self.view_type)
+            if not self.is_running or not self.video_processor:
+                return
+                
+            # Get frame from video processor
+            frame = self.video_processor.get_frame()
+            if frame is None:
+                return
+                
+            # Convert frame to QImage
+            height, width, channel = frame.shape
+            bytes_per_line = 3 * width
+            q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
             
-            if frame is not None:
-                # Convert frame to QImage
-                height, width, channel = frame.shape
-                bytes_per_line = 3 * width
-                q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
-                q_image = q_image.rgbSwapped()
+            # Scale image to fit widget while maintaining aspect ratio
+            scaled_pixmap = QPixmap.fromImage(q_image).scaled(
+                self.width(), self.height(),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation
+            )
+            
+            # Update the label with the new frame
+            self.setPixmap(scaled_pixmap)
+            
+            # Process frame for detection
+            self.frame_count += 1
+            if self.frame_count % 2 == 0:  # Process every other frame
+                self.process_frame(frame)
                 
-                # Scale image to fit widget while maintaining aspect ratio
-                scaled_pixmap = QPixmap.fromImage(q_image).scaled(
-                    self.width(), self.height(),
-                    Qt.KeepAspectRatio,
-                    Qt.FastTransformation  # Use fast transformation instead of smooth
-                )
-                
-                # Center the image
-                x = (self.width() - scaled_pixmap.width()) // 2
-                y = (self.height() - scaled_pixmap.height()) // 2
-                
-                # Create a new pixmap with the widget size
-                final_pixmap = QPixmap(self.width(), self.height())
-                final_pixmap.fill(Qt.black)
-                
-                # Draw the scaled image centered
-                painter = QPainter(final_pixmap)
-                painter.drawPixmap(x, y, scaled_pixmap)
-                painter.end()
-                
-                self.setPixmap(final_pixmap)
-                
-                # Update last update time
-                self.last_update_time = time.time()
-                
-                # Emit result if available
-                if 'data' in result:
-                    self.result_updated.emit(result['data'])
-                    
         except Exception as e:
-            print(f"Error updating frame: {str(e)}")
-            self.error_message = str(e)
+            logger.error(f"Error updating frame: {e}")
 
-    def handle_empty_frame(self):
-        self.setStyleSheet("""
-            QLabel {
-                color: #3ac194;
-                background-color: black;
-                border-radius: 10px;
-                border: 1px solid #3ac194;
-            }
-            QLabel:hover {
-                border: 2px solid #14e7a1;
-            }
-        """)
-        self.setText(f"{self.view_type.replace('_', ' ').title()} View")
-        self.update()
-    
+    def process_frame(self, frame):
+        """Process frame for object detection"""
+        try:
+            if not self.is_running or not self.video_processor:
+                return
+                
+            # Check cooldown
+            current_time = time.time()
+            if (self.last_detection_time and 
+                current_time - self.last_detection_time < self.detection_cooldown):
+                return
+                
+            # Process frame
+            results = self.video_processor.process_frame(frame)
+            if results:
+                self.last_detection_time = current_time
+                self.last_valid_detection = results
+                self.result_updated.emit(results)
+                
+        except Exception as e:
+            logger.error(f"Error processing frame: {e}")
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if self.pixmap():
             self.setPixmap(self.pixmap().scaled(self.size(), Qt.KeepAspectRatio, Qt.FastTransformation))
     
     def closeEvent(self, event):
-        self.update_timer.stop()
-        super().closeEvent(event)
-    
-    def stop_camera(self):
-        self.update_timer.stop()
-        self.camera_started = False
-        # Force text to be visible
-        self.setStyleSheet("""
-            QLabel {
-                color: #3ac194;
-                background-color: black;
-                border-radius: 10px;
-                border: 1px solid #3ac194;
-            }
-            QLabel:hover {
-                border: 2px solid #14e7a1;
-            }
-        """)
-        # Clear any displayed frame
-        self.clear()
-        # Set text after clearing
-        self.setText(f"{self.view_type.replace('_', ' ').title()} View")
-        # Disable glow effect when camera stops
-        self.glow_effect.setEnabled(False)
-        # Force update
-        self.update()
-        # No need to call stop_camera on video_processor as it's managed by the main view 
+        """Handle widget close event"""
+        try:
+            self.stop_camera()
+            event.accept()
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
+            event.accept() 
