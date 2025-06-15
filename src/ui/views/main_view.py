@@ -632,3 +632,30 @@ class MainView(QWidget):
             self.residue_scan_camera.hide()
             self.object_detection_camera.setMinimumSize(640, 360)
             self.object_detection_camera.setMaximumSize(640, 360)
+
+    def handle_detection_result(self, result_data):
+        """Handle detection result updates"""
+        try:
+            if not result_data:
+                return
+
+            # Update status
+            if result_data.get('classification') == 'Analyzing...':
+                self.status_label.setText("Status: Analyzing...")
+            elif result_data.get('classification') == 'No object detected':
+                self.status_label.setText("Status: No object detected")
+            else:
+                self.status_label.setText("Status: Object detected")
+
+            # Update classification
+            classification = result_data.get('classification', '-')
+            self.classification_label.setText(f"Classification: {classification}")
+
+            # Store last valid detection
+            if classification not in ['Analyzing...', 'No object detected', 'Waiting for: Type', 'Unknown', '-']:
+                self.last_valid_detection = result_data
+                self.last_classification = classification
+
+        except Exception as e:
+            print(f"Error handling detection result: {str(e)}")
+            self.status_label.setText("Status: Error processing detection")
