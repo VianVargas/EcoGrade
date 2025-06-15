@@ -14,6 +14,10 @@ from src.utils.residue import detect_residue_colors, calculate_residue_score
 from src.utils.database import store_measurement, generate_unique_id
 from src.utils.animation import add_detection_animation, add_scan_effect
 from src.utils.tracking import get_centroid, match_object, update_tracking, start_tracking
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 class VideoProcessor:
     _instance = None

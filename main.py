@@ -1,21 +1,18 @@
 import sys
 import os
+import logging
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon, QFontDatabase
 from src.ui.main_window import MainWindow
 from src.utils.video_processor import VideoProcessor
 from src.utils.database import init_db
-import logging
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('app.log'),
-        logging.StreamHandler()
-    ]
+    datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
 
