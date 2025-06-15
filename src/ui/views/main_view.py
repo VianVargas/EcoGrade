@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 import logging
 import traceback
 import math
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -112,6 +113,7 @@ class SvgButton(QPushButton):
 class MainView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.parent = parent
         self.video_processor = VideoProcessor()
         self.last_classification = None
         self.last_valid_detection = None
@@ -121,6 +123,8 @@ class MainView(QWidget):
         self.detection_interval = 0.1  # Reduce from 0.2 to 0.1
         self.processing_size = (416, 416)  # Increase from (320, 240)
         self.update_interval = 33  # Increase from 50ms to ~30 FPS
+        self.last_servo_command_time = 0  # Track last servo command time
+        self.command_cooldown = 5.0  # 5 seconds cooldown between commands
         
         # Initialize servo controller
         try:
@@ -131,6 +135,7 @@ class MainView(QWidget):
             self.servo_controller = None
         
         self.setup_ui()
+        self.setup_connections()
         self._show_no_object_detected()
         
     def setup_ui(self):
@@ -575,26 +580,40 @@ class MainView(QWidget):
         
         # Process servo command after UI updates
         if hasattr(self, 'servo_controller') and self.servo_controller:
-            classification = result.get('classification', '-')
-            # Map classification to servo commands
-            servo_command = None
-            if classification == 'High Value':
-                servo_command = 'high'
-            elif classification == 'Low Value':
-                servo_command = 'low'
-            elif classification == 'Rejected':
-                servo_command = 'reject'
-            elif classification == 'Mixed':
-                servo_command = 'mix'
-                
-            # Process valid servo commands
-            if servo_command:
-                try:
-                    logging.info(f"Processing servo command: {servo_command} (from classification: {classification})")
-                    self.servo_controller.process_command(servo_command)
-                    logging.info(f"Servo command {servo_command} executed successfully")
-                except Exception as e:
-                    logging.error(f"Error executing servo command {servo_command}: {e}")
+            current_time = time.time()
+            # Check if enough time has passed since last command
+            if current_time - self.last_servo_command_time >= self.command_cooldown:
+                classification = result.get('classification', '-')
+                # Map classification to servo commands
+                servo_command = None
+                if classification == 'High Value':
+                    servo_command = 'high'
+                elif classification == 'Low Value':
+                    servo_command = 'low'
+                elif classification == 'Rejected':
+                    servo_command = 'reject'
+                elif classification == 'Mixed':
+                    servo_command = 'mix'
+                    
+                # Process valid servo commands
+                if servo_command:
+                    try:
+                        logging.info(f"Processing servo command: {servo_command} (from classification: {classification})")
+                        self.servo_controller.process_command(servo_command)
+                        self.last_servo_command_time = current_time
+                        logging.info(f"Servo command {servo_command} executed successfully")
+                        
+                        # Print performance metrics
+                        print("\n=== Performance Metrics ===")
+                        print(f"Waste Type: {result.get('waste_type', '-')}")
+                        print(f"Classification: {classification}")
+                        print(f"Confidence: {result.get('confidence_level', 0):.2f}%")
+                        print(f"Contamination: {result.get('contamination_score', 0):.2f}%")
+                        print(f"Servo Command: {servo_command}")
+                        print("========================\n")
+                        
+                    except Exception as e:
+                        logging.error(f"Error executing servo command {servo_command}: {e}")
 
     def _show_no_object_detected(self):
         self.waste_type_widget.update_value('No object detected')
