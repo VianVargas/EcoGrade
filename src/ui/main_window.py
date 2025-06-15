@@ -16,7 +16,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("EcoGrade")
-        self.setFixedSize(1080, 720)  # Increased size to fit 640x640 camera
+        self.setFixedSize(1080, 720)  # Fixed size at 1080x720
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowMaximizeButtonHint)  # Disable maximize button
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #1a1a1a;
@@ -52,9 +53,6 @@ class MainWindow(QMainWindow):
         
         # Initialize status bar
         self.statusBar().showMessage('Ready')
-        
-        # Set window flags to prevent resizing
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowMaximizeButtonHint)
         
         self.current_view = "front"
         self.initUI()

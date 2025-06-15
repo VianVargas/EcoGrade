@@ -122,10 +122,6 @@ class MainView(QWidget):
         self.processing_size = (416, 416)  # Increase from (320, 240)
         self.update_interval = 33  # Increase from 50ms to ~30 FPS
         
-        # Add cooldown tracking
-        self.last_servo_command_time = 0
-        self.servo_cooldown = 2.0  # 2 seconds cooldown between servo commands
-        
         # Initialize servo controller
         try:
             self.servo_controller = ServoController()
@@ -138,63 +134,154 @@ class MainView(QWidget):
         self._show_no_object_detected()
         
     def setup_ui(self):
-        """Set up the main UI layout"""
-        # Create main layout
-        main_layout = QVBoxLayout()
-        main_layout.setSpacing(10)
-        main_layout.setContentsMargins(10, 10, 10, 10)
+        # Set main background color to match analytics
+        self.setStyleSheet("""
+            QWidget {
+                background-color: #0f172a;
+                color: white;
+            }
+        """)
         
-        # Create camera layout
-        self.camera_layout = QHBoxLayout()
-        self.camera_layout.setSpacing(10)
+        layout = QHBoxLayout()
+        layout.setSpacing(20)
+        layout.setContentsMargins(20, 20, 20, 20)
         
-        # Create camera widgets
-        self.object_detection_camera = CameraWidget("object_detection", self.video_processor)
-        self.residue_scan_camera = CameraWidget("residue_scan", self.video_processor)
+        # Left side - Camera feeds (matches analytics layout)
+        self.left_widget = QWidget()
+        self.left_widget.setStyleSheet("""
+            QWidget {
+                background-color: #1e293b;
+                border-radius: 12px;
+                border: 1px solid #334155;
+            }
+        """)
+        self.left_layout = QVBoxLayout(self.left_widget)
+        self.left_layout.setContentsMargins(20, 20, 20, 20)
+        self.left_layout.setSpacing(15)
         
-        # Set fixed sizes for camera widgets
-        self.object_detection_camera.setFixedSize(480, 360)
-        self.residue_scan_camera.setFixedSize(480, 360)
+        # Create camera layout container with analytics styling //0f172a, border: 2px solid #10b981;
+        self.camera_container = QWidget()
+        self.camera_container.setMinimumSize(500, 400)  # Reduced from 700, 500
+        self.camera_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.camera_container.setStyleSheet("""
+            QWidget {
+                background-color: #0f172a;  
+                border-radius: 12px;
+            }
+        """)
+        self.setup_camera_layout()
         
-        # Add cameras to layout
-        self.camera_layout.addWidget(self.object_detection_camera)
-        self.camera_layout.addWidget(self.residue_scan_camera)
+        # Button container with analytics styling
+        button_container = QWidget()
+        button_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        button_container.setStyleSheet("""
+            QWidget {
+                background-color: #0f172a;
+                margin: 0;
+                padding: 0;
+            }
+        """)
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setSpacing(15)
+        button_layout.setContentsMargins(0, 10, 0, 10)
+
+        # Start/Stop button with analytics styling
+        self.start_btn = SvgButton("")
+        self.start_btn.setFixedSize(60, 60)
+        self.start_btn.setFont(QFont('Inter', 14, QFont.DemiBold))
         
-        # Create control panel
-        control_panel = QHBoxLayout()
+        # Create icons
+        self.camera_off_icon = QIcon("src/ui/assets/camera-off.svg")
+        self.camera_on_icon = QIcon("src/ui/assets/camera.svg")
         
-        # Create buttons
-        self.start_button = QPushButton("Start Detection")
-        self.stop_button = QPushButton("Stop Detection")
-        self.toggle_view_button = QPushButton("Toggle View")
+        # Set initial state with analytics styling
+        self.start_btn.setIcon(self.camera_off_icon)
+        self.start_btn.setIconSize(QSize(32, 32))
         
-        # Set fixed sizes for buttons
-        button_width = 120
-        button_height = 40
-        self.start_button.setFixedSize(button_width, button_height)
-        self.stop_button.setFixedSize(button_width, button_height)
-        self.toggle_view_button.setFixedSize(button_width, button_height)
+        self.start_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #374151;
+                color: white;
+                border: 1px solid #4b5563;
+                border-radius: 30px;
+                font-family: 'Inter';
+                font-size: 14px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #4b5563;
+                border: 1px solid #10b981;
+            }
+            QPushButton:pressed {
+                background-color: #374151;
+                border: 1px solid #10b981;
+            }
+        """)
+        self.start_btn.clicked.connect(self.toggle_detection)
         
-        # Add buttons to control panel
-        control_panel.addWidget(self.start_button)
-        control_panel.addWidget(self.stop_button)
-        control_panel.addWidget(self.toggle_view_button)
+        # Camera layout change button with analytics styling
+        self.layout_btn = SvgButton("Single View")
+        self.layout_btn.setFixedSize(140, 60)
+        self.layout_btn.setFont(QFont('Inter', 12, QFont.DemiBold))
+        self.layout_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #374151;
+                color: white;
+                border: 1px solid #4b5563;
+                border-radius: 20px;
+                font-family: 'Inter';
+                font-size: 12px;
+                font-weight: 600;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background-color: #4b5563;
+                border: 1px solid #10b981;
+            }
+            QPushButton:pressed {
+                background-color: #374151;
+                border: 1px solid #10b981;
+            }
+        """)
+        self.layout_btn.clicked.connect(self.toggle_camera_layout)
         
-        # Connect button signals
-        self.start_button.clicked.connect(self.start_detection)
-        self.stop_button.clicked.connect(self.stop_detection)
-        self.toggle_view_button.clicked.connect(self.toggle_camera_view)
+        button_layout.addStretch()
+        button_layout.addWidget(self.start_btn)
+        button_layout.addWidget(self.layout_btn)
+        button_layout.addStretch()
         
-        # Add layouts to main layout
-        main_layout.addLayout(self.camera_layout)
-        main_layout.addLayout(control_panel)
+        self.left_layout.addWidget(self.camera_container, 1)
+        self.left_layout.addWidget(button_container)
         
-        # Set the main layout
-        self.setLayout(main_layout)
+        # Right side - Detection results with analytics styling
+        right_widget = QWidget()
+        right_widget.setStyleSheet("""
+            QWidget {
+                background-color: transparent;
+            }
+        """)
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setSpacing(20)
+        right_layout.setContentsMargins(0, 250, 0, 200)
         
-        # Initialize camera view state
-        self.is_two_camera_layout = True
-        self.update_camera_layout()
+        # Detection result panels with analytics design
+        self.waste_type_widget = self.create_result_panel("WASTE TYPE:", "No object detected")
+        self.confidence_widget = self.create_result_panel("CONFIDENCE LEVEL:", "0.00%")
+        self.contamination_widget = self.create_result_panel("CONTAMINATION:", "0.00%")
+        self.classification_widget = self.create_result_panel("RESULT:", "No object detected")
+        
+        # Add widgets to right layout
+        right_layout.addWidget(self.waste_type_widget)
+        right_layout.addWidget(self.confidence_widget)
+        right_layout.addWidget(self.contamination_widget)
+        right_layout.addWidget(self.classification_widget)
+        right_layout.addStretch()
+        
+        # Set layout proportions to match analytics
+        layout.addWidget(self.left_widget, 3)  # Camera section takes more space
+        layout.addWidget(right_widget, 1)      # Results section
+        
+        self.setLayout(layout)
 
     def create_result_panel(self, title, value):
         """Create a result panel with analytics styling"""
@@ -368,7 +455,7 @@ class MainView(QWidget):
             # Single camera layout
             camera_layout = QVBoxLayout()
             camera_layout.setSpacing(5)
-            camera_layout.setContentsMargins(20, 20, 20, 20)
+            camera_layout.setContentsMargins(100, 20, 20, 20)
             
             # Set size for single camera layout
             self.object_detection_camera.setFixedSize(1000, 700)  # Set specific size for main camera
@@ -604,45 +691,3 @@ class MainView(QWidget):
         except Exception as e:
             logger.error(f"Error in closeEvent: {str(e)}")
             event.accept()
-
-    def start_detection(self):
-        """Start the detection process"""
-        if not self.is_detecting:
-            self.is_detecting = True
-            self.start_button.setEnabled(False)
-            self.stop_button.setEnabled(True)
-            if hasattr(self, 'video_processor'):
-                self.video_processor.start()
-
-    def stop_detection(self):
-        """Stop the detection process"""
-        if self.is_detecting:
-            self.is_detecting = False
-            self.start_button.setEnabled(True)
-            self.stop_button.setEnabled(False)
-            if hasattr(self, 'video_processor'):
-                self.video_processor.stop()
-
-    def toggle_camera_view(self):
-        """Toggle between single and dual camera views"""
-        self.is_two_camera_layout = not self.is_two_camera_layout
-        self.update_camera_layout()
-        if self.is_two_camera_layout:
-            self.toggle_view_button.setText("Single View")
-        else:
-            self.toggle_view_button.setText("Dual View")
-
-    def update_camera_layout(self):
-        """Update the camera layout based on current view mode"""
-        # Clear existing layout
-        for i in reversed(range(self.camera_layout.count())): 
-            self.camera_layout.itemAt(i).widget().setParent(None)
-        
-        if self.is_two_camera_layout:
-            # Add both cameras
-            self.camera_layout.addWidget(self.object_detection_camera)
-            self.camera_layout.addWidget(self.residue_scan_camera)
-        else:
-            # Add only object detection camera
-            self.camera_layout.addWidget(self.object_detection_camera)
-            self.residue_scan_camera.hide()
