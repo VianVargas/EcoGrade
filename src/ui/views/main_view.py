@@ -212,8 +212,8 @@ class MainView(QWidget):
         self.setLayout(main_layout)
         
         # Connect signals
-        self.object_detection_camera.result_updated.connect(self.handle_detection_result)
-        self.residue_scan_camera.result_updated.connect(self.handle_detection_result)
+        self.object_detection_camera.result_updated.connect(self.update_detection_results)
+        self.residue_scan_camera.result_updated.connect(self.update_detection_results)
         
         # Start video processing
         self.video_processor.start()
