@@ -10,6 +10,7 @@ import sys
 import logging
 import traceback
 import sqlite3
+from PyQt5.QtWidgets import QAction
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -230,6 +231,49 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"Error during cleanup: {str(e)}")
             event.accept()
+
+    def create_menu_bar(self):
+        """Create the menu bar with File and View menus"""
+        menubar = self.menuBar()
+        
+        # File menu
+        file_menu = menubar.addMenu('File')
+        
+        # Exit action
+        exit_action = QAction('Exit', self)
+        exit_action.setShortcut('Ctrl+Q')
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+        
+        # View menu
+        view_menu = menubar.addMenu('View')
+        
+        # Toggle camera view action
+        toggle_view_action = QAction('Toggle Camera View', self)
+        toggle_view_action.setShortcut('Ctrl+V')
+        toggle_view_action.triggered.connect(self.toggle_camera_view)
+        view_menu.addAction(toggle_view_action)
+        
+        # Help menu
+        help_menu = menubar.addMenu('Help')
+        
+        # About action
+        about_action = QAction('About', self)
+        about_action.triggered.connect(self.show_about)
+        help_menu.addAction(about_action)
+
+    def toggle_camera_view(self):
+        """Toggle between single and dual camera views"""
+        if hasattr(self, 'main_view'):
+            self.main_view.toggle_camera_view()
+
+    def show_about(self):
+        """Show about dialog"""
+        QMessageBox.about(self, 'About EcoGrade',
+            'EcoGrade - Waste Classification System\n\n'
+            'Version 1.0\n'
+            '© 2024 QuadPals\n\n'
+            'A real-time waste classification system using computer vision.')
 
 def main():
     app = QApplication(sys.argv)
