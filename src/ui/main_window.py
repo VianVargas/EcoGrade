@@ -174,26 +174,37 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """Handle window close event"""
         try:
-            # Stop video processing
+            # Show confirmation dialog
+            reply = QMessageBox.question(
+                self,
+                'Confirm Exit',
+                'Are you sure you want to exit?',
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
+            
+            if reply == QMessageBox.Yes:
+            # Stop the video processor
             if hasattr(self, 'main_view') and hasattr(self.main_view, 'video_processor'):
                 self.main_view.video_processor.stop()
-                
-            # Stop servo controller
-            if hasattr(self, 'main_view') and hasattr(self.main_view, 'servo_controller'):
-                self.main_view.servo_controller.cleanup()
-                
-            # Close camera
-            if hasattr(self, 'main_view') and hasattr(self.main_view, 'camera'):
-                self.main_view.camera.release()
-                
-            # Save settings
-            self.save_settings()
+            
+            # Stop any running cameras
+            if hasattr(self, 'main_view'):
+                if hasattr(self.main_view, 'object_detection_camera'):
+                    self.main_view.object_detection_camera.stop_camera()
+                if hasattr(self.main_view, 'residue_scan_camera'):
+                    self.main_view.residue_scan_camera.stop_camera()
             
             # Accept the close event
             event.accept()
+            else:
+                # Reject the close event
+                event.ignore()
             
         except Exception as e:
-            logging.error(f"Error during cleanup: {e}")
+            logging.error(f"Error during window close: {str(e)}")
+            logging.error(traceback.format_exc())
+            # Still accept the close event even if there's an error
             event.accept()
 
 def main():

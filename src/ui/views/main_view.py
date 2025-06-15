@@ -1,4 +1,4 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLabel, QMessageBox, QSizePolicy, QApplication
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QPushButton, QLabel, QMessageBox, QSizePolicy
 from PyQt5.QtCore import Qt, QTimer, QSize, QRect
 from PyQt5.QtGui import QFont, QPainter, QPainterPath, QIcon, QColor, QLinearGradient
 from PyQt5.QtSvg import QSvgWidget
@@ -14,6 +14,7 @@ import logging
 import traceback
 import math
 import time
+from PyQt5.QtWidgets import QApplication
 
 # Configure logging
 logging.basicConfig(
@@ -113,29 +114,24 @@ class SvgButton(QPushButton):
 class MainView(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.parent = parent
         self.video_processor = VideoProcessor()
         self.last_classification = None
-        self.animation_time = 0
-        self.detection_start_time = None
-        self.current_contamination_score = 0
+        self.last_valid_detection = None
+        self.is_two_camera_layout = False  # Start with single camera layout
+        self.is_detecting = False  # Track detection state
+        self.frame_skip = 2  # Reduce from 3 to 2
+        self.detection_interval = 0.1  # Reduce from 0.2 to 0.1
         self.processing_size = (416, 416)  # Increase from (320, 240)
         self.update_interval = 33  # Increase from 50ms to ~30 FPS
         self.last_servo_command_time = 0  # Track last servo command time
         self.command_cooldown = 5.0  # 5 seconds cooldown between commands
         
-        # Camera layout settings
-        self.is_two_camera_layout = False  # Start with single camera layout
-        self.is_detecting = False  # Track detection state
-        self.frame_skip = 2  # Reduce from 3 to 2
-        self.detection_interval = 0.1  # Reduce from 0.2 to 0.1
-        
         # Initialize servo controller
         try:
             self.servo_controller = ServoController()
-            logging.info("Servo controller initialized successfully")
+            logger.info("Servo controller initialized successfully")
         except Exception as e:
-            logging.error(f"Failed to initialize servo controller: {e}")
+            logger.error(f"Failed to initialize servo controller: {e}")
             self.servo_controller = None
         
         self.setup_ui()
@@ -538,13 +534,31 @@ class MainView(QWidget):
             logging.error(traceback.format_exc())
             QMessageBox.critical(self, "Error", f"Failed to change camera layout: {str(e)}")
 
+    def setup_connections(self):
+        """Setup signal connections"""
+        # Connect video processor detection callback
+        if hasattr(self, 'video_processor'):
+            self.video_processor.detection_callback = self.update_detection_results
+            
+        # Connect camera selection
+        if hasattr(self, 'camera_selector'):
+            self.camera_selector.currentIndexChanged.connect(self.on_camera_changed)
+            
+        # Connect start/stop button
+        if hasattr(self, 'start_button'):
+            self.start_button.clicked.connect(self.toggle_detection)
+            
+        # Connect settings button
+        if hasattr(self, 'settings_button'):
+            self.settings_button.clicked.connect(self.show_settings)
+
     def update_detection_results(self, result):
         """Update UI with detection results"""
         if not result:
             return
             
         # Store the last detection result
-        self.last_detection_result = result
+        self.last_valid_detection = result
         
         # Update UI widgets first
         if hasattr(self, 'waste_type_widget'):
@@ -602,10 +616,10 @@ class MainView(QWidget):
                 # Process valid servo commands
                 if servo_command:
                     try:
-                        logging.info(f"Processing servo command: {servo_command} (from classification: {classification})")
+                        logger.info(f"Processing servo command: {servo_command} (from classification: {classification})")
                         self.servo_controller.process_command(servo_command)
                         self.last_servo_command_time = current_time
-                        logging.info(f"Servo command {servo_command} executed successfully")
+                        logger.info(f"Servo command {servo_command} executed successfully")
                         
                         # Print performance metrics
                         print("\n=== Performance Metrics ===")
@@ -617,7 +631,7 @@ class MainView(QWidget):
                         print("========================\n")
                         
                     except Exception as e:
-                        logging.error(f"Error executing servo command {servo_command}: {e}")
+                        logger.error(f"Error executing servo command {servo_command}: {e}")
 
     def _show_no_object_detected(self):
         self.waste_type_widget.update_value('No object detected')
@@ -744,21 +758,3 @@ class MainView(QWidget):
         except Exception as e:
             logger.error(f"Error in closeEvent: {str(e)}")
             event.accept()
-
-    def setup_connections(self):
-        """Setup signal connections"""
-        # Connect video processor detection callback
-        if hasattr(self, 'video_processor'):
-            self.video_processor.detection_callback = self.update_detection_results
-            
-        # Connect camera selection
-        if hasattr(self, 'camera_selector'):
-            self.camera_selector.currentIndexChanged.connect(self.on_camera_changed)
-            
-        # Connect start/stop button
-        if hasattr(self, 'start_button'):
-            self.start_button.clicked.connect(self.toggle_detection)
-            
-        # Connect settings button
-        if hasattr(self, 'settings_button'):
-            self.settings_button.clicked.connect(self.show_settings)
