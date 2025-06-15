@@ -122,6 +122,10 @@ class MainView(QWidget):
         self.processing_size = (416, 416)  # Increase from (320, 240)
         self.update_interval = 33  # Increase from 50ms to ~30 FPS
         
+        # Add cooldown tracking
+        self.last_servo_command_time = 0
+        self.servo_cooldown = 2.0  # 2 seconds cooldown between servo commands
+        
         # Initialize servo controller
         try:
             self.servo_controller = ServoController()
@@ -141,8 +145,8 @@ class MainView(QWidget):
         main_layout.setContentsMargins(10, 10, 10, 10)
         
         # Create camera layout
-        camera_layout = QHBoxLayout()
-        camera_layout.setSpacing(10)
+        self.camera_layout = QHBoxLayout()
+        self.camera_layout.setSpacing(10)
         
         # Create camera widgets
         self.object_detection_camera = CameraWidget("object_detection", self.video_processor)
@@ -153,8 +157,8 @@ class MainView(QWidget):
         self.residue_scan_camera.setFixedSize(480, 360)
         
         # Add cameras to layout
-        camera_layout.addWidget(self.object_detection_camera)
-        camera_layout.addWidget(self.residue_scan_camera)
+        self.camera_layout.addWidget(self.object_detection_camera)
+        self.camera_layout.addWidget(self.residue_scan_camera)
         
         # Create control panel
         control_panel = QHBoxLayout()
@@ -182,7 +186,7 @@ class MainView(QWidget):
         self.toggle_view_button.clicked.connect(self.toggle_camera_view)
         
         # Add layouts to main layout
-        main_layout.addLayout(camera_layout)
+        main_layout.addLayout(self.camera_layout)
         main_layout.addLayout(control_panel)
         
         # Set the main layout
