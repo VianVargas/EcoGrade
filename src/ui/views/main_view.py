@@ -206,52 +206,401 @@ class MainView(QWidget):
         # Set the main layout
         self.setLayout(main_layout)
         
-        # Set up update timer
-        self.update_timer = QTimer()
-        self.update_timer.timeout.connect(self.update_display)
-        self.update_timer.start(self.update_interval)
+        # Connect signals
+        self.object_detection_camera.result_updated.connect(self.handle_detection_result)
+        self.residue_scan_camera.result_updated.connect(self.handle_detection_result)
 
-    def toggle_camera_view(self):
-        """Toggle between single and dual camera views"""
-        self.is_two_camera_layout = not self.is_two_camera_layout
-        if self.is_two_camera_layout:
-            self.residue_scan_camera.show()
-            self.object_detection_camera.setMinimumSize(480, 360)
-            self.object_detection_camera.setMaximumSize(480, 360)
-            self.residue_scan_camera.setMinimumSize(480, 360)
-            self.residue_scan_camera.setMaximumSize(480, 360)
+    def create_result_panel(self, title, value):
+        """Create a result panel with analytics styling"""
+        panel = QWidget()
+        panel.setFixedHeight(80)
+        panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        panel.setStyleSheet("""
+            QWidget {
+                background-color: #1e293b;
+                border-radius: 18px;
+                border: 1px solid #334155;
+                padding: 0px;
+            }
+        """)
+        
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(20, 12, 20, 12)
+        layout.setSpacing(8)
+        
+        # Title label
+        title_label = QLabel(title)
+        title_label.setFont(QFont('Fredoka', 16, QFont.Normal))
+        title_label.setStyleSheet("""
+            QLabel {
+                color: #94a3b8;
+                background-color: transparent;
+                border: none;
+                font-weight: 500;
+            }
+        """)
+        
+        # Value label
+        value_label = QLabel(value)
+        value_label.setFont(QFont('Inter', 16, QFont.DemiBold))
+        
+        # Set value color based on content
+        if "No object detected" in value or value == "-":
+            color = "#10b981"  # Green for no object/default state
+        elif "Analyzing..." in value:
+            color = "#f59e0b"  # Amber for analyzing
+        elif "High Value" in value:
+            color = "#10b981"  # Green for high value
+        elif "Low Value" in value:
+            color = "#f59e0b"  # Amber for low value
+        elif "Rejected" in value:
+            color = "#ef4444"  # Red for rejected
+        elif "Mixed" in value:
+            color = "#ef4444"  # Red for mixed
         else:
-            self.residue_scan_camera.hide()
-            self.object_detection_camera.setMinimumSize(640, 360)
-            self.object_detection_camera.setMaximumSize(640, 360)
-
-    def update_display(self):
-        """Update the display with latest detection results"""
-        if not self.video_processor.latest_result:
-            return
+            color = "#10b981"  # Default green
             
-        result = self.video_processor.latest_result
+        value_label.setStyleSheet(f"""
+            QLabel {{
+                color: {color};
+                background-color: transparent;
+                border: none;
+                font-weight: 600;
+            }}
+        """)
         
-        # Update object detection camera
-        if 'model' in result['frames']:
-            self.object_detection_camera.update_frame(result['frames']['model'])
+        layout.addWidget(title_label)
+        layout.addWidget(value_label)
         
-        # Update residue scan camera if visible
-        if self.is_two_camera_layout and 'residue' in result['frames']:
-            self.residue_scan_camera.update_frame(result['frames']['residue'])
+        # Store references for easy updating
+        panel.title_label = title_label
+        panel.value_label = value_label
+        panel.update_value = lambda new_value: self.update_panel_value(panel, new_value)
         
-        # Update status and classification
-        if result['data']['classification'] not in ['-', 'No object detected']:
-            self.status_label.setText(f"Status: Detecting")
-            self.classification_label.setText(f"Classification: {result['data']['classification']}")
+        return panel
+        
+    def update_panel_value(self, panel, new_value):
+        """Update panel value with appropriate styling"""
+        panel.value_label.setText(str(new_value))
+        
+        # Update color based on content
+        if "No object detected" in str(new_value) or str(new_value) == "-":
+            color = "#10b981"  # Green
+        elif "Analyzing..." in str(new_value):
+            color = "#f59e0b"  # Yellow
+        elif "High Value" in str(new_value):
+            color = "#10b981"  # Green
+        elif "Low Value" in str(new_value):
+            color = "#3b82f6"  # Blue for low value
+        elif "Rejected" in str(new_value):
+            color = "#f59e0b"  # Yellow for rejected
+        elif "Mixed" in str(new_value):
+            color = "#ef4444"  # Red for mixed
         else:
-            self.status_label.setText(f"Status: Ready")
-            self.classification_label.setText(f"Classification: -")
+            color = "#10b981"  # Default green
+            
+        panel.value_label.setStyleSheet(f"""
+            QLabel {{
+                color: {color};
+                background-color: transparent;
+                border: none;
+                font-weight: 600;
+                font-size: 24px;
+            }}
+        """)
+
+    def setup_camera_layout(self):
+        """Setup the camera layout based on current state"""
+        # Store current detection state
+        is_detecting = hasattr(self, 'start_btn') and self.start_btn.icon() == self.camera_on_icon
+        
+        # Stop all cameras before changing layout
+        if hasattr(self, 'object_detection_camera'):
+            self.object_detection_camera.stop_camera()
+        if hasattr(self, 'residue_scan_camera'):
+            self.residue_scan_camera.stop_camera()
+        
+        # Clear existing layout
+        if self.camera_container.layout():
+            # First remove all widgets from the layout
+            while self.camera_container.layout().count():
+                item = self.camera_container.layout().takeAt(0)
+                if item.widget():
+                    item.widget().setParent(None)
+            # Then delete the layout itself
+            QWidget().setLayout(self.camera_container.layout())
+        
+        # Calculate camera sizes based on container size
+        container_width = self.camera_container.width() - 40  # Account for padding
+        container_height = self.camera_container.height() - 40  # Account for padding
+        
+        # Create camera widgets if they don't exist
+        if not hasattr(self, 'object_detection_camera'):
+            self.object_detection_camera = CameraWidget(view_type="object_detection", video_processor=self.video_processor)
+            self.residue_scan_camera = CameraWidget(view_type="residue_scan", video_processor=self.video_processor)
+            
+            # Connect signals
+            self.object_detection_camera.result_updated.connect(self.update_detection_results)
+            self.residue_scan_camera.result_updated.connect(self.update_detection_results)
+        
+        # Ensure cameras are children of the container
+        self.object_detection_camera.setParent(self.camera_container)
+        self.residue_scan_camera.setParent(self.camera_container)
+        
+        if self.is_two_camera_layout:
+            # Two camera layout - HORIZONTAL (left and right)
+            camera_layout = QHBoxLayout()
+            camera_layout.setSpacing(15)
+            camera_layout.setContentsMargins(20, 20, 20, 20)
+            
+            # Set sizes for two camera horizontal layout
+            camera_width = 510  # Half of 680
+            camera_height = 600
+            self.object_detection_camera.setFixedSize(camera_width, camera_height)
+            self.residue_scan_camera.setFixedSize(camera_width, camera_height)
+            
+            # Set size policies
+            self.object_detection_camera.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            self.residue_scan_camera.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+            
+            # Place cameras side by side horizontally
+            camera_layout.addWidget(self.object_detection_camera)
+            camera_layout.addWidget(self.residue_scan_camera)
+            
+            # Set the new layout
+            self.camera_container.setLayout(camera_layout)
+            
+            # Show both cameras
+            self.object_detection_camera.show()
+            self.residue_scan_camera.show()
+            
+            # Start both cameras if detection is active
+            if is_detecting:
+                self.object_detection_camera.start_camera()
+                self.residue_scan_camera.start_camera()
+        else:
+            # Single camera layout
+            camera_layout = QVBoxLayout()
+            camera_layout.setSpacing(5)
+            camera_layout.setContentsMargins(100, 20, 20, 20)
+            
+            # Set size for single camera layout
+            self.object_detection_camera.setFixedSize(1000, 700)  # Set specific size for main camera
+            self.object_detection_camera.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)  # Prevent resizing
+            
+            # Add only the main camera
+            camera_layout.addWidget(self.object_detection_camera)
+            
+            # Set the new layout
+            self.camera_container.setLayout(camera_layout)
+            
+            # Show only the main camera
+            self.object_detection_camera.show()
+            self.residue_scan_camera.hide()
+            
+            # Start the main camera if detection is active
+            if is_detecting:
+                self.object_detection_camera.start_camera()
+        
+        # Force layout update
+        self.camera_container.updateGeometry()
+        self.camera_container.update()
+
+    def toggle_camera_layout(self):
+        """Toggle between single and two camera layouts"""
+        try:
+            # Stop cameras and reset button state if detection is active
+            if self.is_detecting:
+                self.is_detecting = False
+                self.start_btn.setIcon(self.camera_off_icon)
+                self.start_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #374151;
+                        color: white;
+                        border: 1px solid #4b5563;
+                        border-radius: 30px;
+                        font-family: 'Inter';
+                        font-size: 14px;
+                        font-weight: 600;
+                    }
+                    QPushButton:hover {
+                        background-color: #4b5563;
+                        border: 1px solid #10b981;
+                    }
+                    QPushButton:pressed {
+                        background-color: #374151;
+                        border: 1px solid #10b981;
+                    }
+                    QPushButton QIcon {
+                        color: white;
+                    }
+                """)
+                
+                # Stop all cameras
+                if hasattr(self, 'object_detection_camera'):
+                    self.object_detection_camera.stop_camera()
+                if hasattr(self, 'residue_scan_camera'):
+                    self.residue_scan_camera.stop_camera()
+            
+            # Toggle layout state
+            self.is_two_camera_layout = not self.is_two_camera_layout
+            
+            # Update button text
+            self.layout_btn.setText("Split View" if self.is_two_camera_layout else "Single View")
+            
+            # Update camera layout
+            self.setup_camera_layout()
+            
+        except Exception as e:
+            logging.error(f"Error toggling camera layout: {str(e)}")
+            logging.error(traceback.format_exc())
+            QMessageBox.critical(self, "Error", f"Failed to change camera layout: {str(e)}")
+
+    def update_detection_results(self, results):
+        """Update detection results and control servos"""
+        try:
+            if not results:
+                return
+
+            # Update last detection time
+            self.last_detection_time = datetime.now()
+            
+            # Store the results
+            self.last_valid_detection = results
+            
+            # Update UI widgets
+            self.waste_type_widget.update_value(results.get('waste_type', '-'))
+            self.contamination_widget.update_value(f"{results.get('contamination_score', 0.0):.2f}%")
+            self.classification_widget.update_value(results.get('classification', '-'))
+            self.confidence_widget.update_value(f"{results.get('confidence_level', 0.0):.2f}%")
+            
+            # Control servos based on classification
+            if self.servo_controller:
+                classification = results.get('classification', '').lower()
+                try:
+                    if 'high' in classification:
+                        self.servo_controller.process_command('high')
+                    elif 'mix' in classification:
+                        self.servo_controller.process_command('mix')
+                    elif 'low' in classification:
+                        self.servo_controller.process_command('low')
+                    elif 'reject' in classification:
+                        self.servo_controller.process_command('reject')
+                except Exception as e:
+                    logger.error(f"Error controlling servos: {e}")
+            
+        except Exception as e:
+            logger.error(f"Error updating detection results: {e}")
+            traceback.print_exc()
 
     def _show_no_object_detected(self):
-        """Show no object detected state"""
-        self.status_label.setText("Status: Ready")
-        self.classification_label.setText("Classification: -")
+        self.waste_type_widget.update_value('No object detected')
+        self.contamination_widget.update_value('0.00%')
+        self.classification_widget.update_value('No object detected')
+        self.confidence_widget.update_value('0.00%')
+
+    def toggle_detection(self):
+        """Toggle detection on/off"""
+        try:
+            if not self.is_detecting:
+                # Start detection
+                self.is_detecting = True
+                self.start_btn.setIcon(self.camera_on_icon)
+                self.start_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #dc2626;
+                        color: white;
+                        border: 1px solid #ef4444;
+                        border-radius: 30px;
+                        font-family: 'Inter';
+                        font-size: 14px;
+                        font-weight: 600;
+                    }
+                    QPushButton:hover {
+                        background-color: #b91c1c;
+                        border: 1px solid #10b981;
+                    }
+                    QPushButton:pressed {
+                        background-color: #991b1b;
+                        border: 1px solid #10b981;
+                    }
+                    QPushButton QIcon {
+                        color: white;
+                    }
+                """)
+                
+                # Show 'Analyzing...' in the results area
+                self.waste_type_widget.update_value("Analyzing...")
+                self.contamination_widget.update_value("Analyzing...")
+                self.classification_widget.update_value("Analyzing...")
+                self.confidence_widget.update_value("Analyzing...")
+                
+                # Initialize and start the video processor
+                self.video_processor.initialize()
+                self.video_processor.start()
+                
+                # Start camera widgets without animation
+                self.object_detection_camera.start_camera()
+                if self.is_two_camera_layout:
+                    self.residue_scan_camera.start_camera()
+                
+                # Set a timer to update results
+                QTimer.singleShot(500, lambda: self.update_detection_results({
+                    'waste_type': 'Analyzing...',
+                    'contamination_score': 0.0,
+                    'classification': 'Analyzing...',
+                    'confidence_level': 0.0
+                }))
+            else:
+                # Stop detection
+                self.is_detecting = False
+                self.start_btn.setIcon(self.camera_off_icon)
+                self.start_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #374151;
+                        color: white;
+                        border: 1px solid #4b5563;
+                        border-radius: 30px;
+                        font-family: 'Inter';
+                        font-size: 14px;
+                        font-weight: 600;
+                    }
+                    QPushButton:hover {
+                        background-color: #4b5563;
+                        border: 1px solid #10b981;
+                    }
+                    QPushButton:pressed {
+                        background-color: #374151;
+                        border: 1px solid #10b981;
+                    }
+                    QPushButton QIcon {
+                        color: white;
+                    }
+                """)
+                
+                # Stop the video processor and cameras
+                self.video_processor.stop()
+                self.object_detection_camera.stop_camera()
+                self.residue_scan_camera.stop_camera()
+                
+                # Reset results
+                self.waste_type_widget.update_value("-")
+                self.contamination_widget.update_value("0.00%")
+                self.classification_widget.update_value("-")
+                self.confidence_widget.update_value("0.00%")
+        except Exception as e:
+            print(f"Error in toggle_detection: {str(e)}")
+            self.is_detecting = False
+            self.start_btn.setIcon(self.camera_off_icon)
+            self.video_processor.stop()
+            self.object_detection_camera.stop_camera()
+            self.residue_scan_camera.stop_camera()
+            
+            # Reset results on error
+            self.waste_type_widget.update_value("-")
+            self.contamination_widget.update_value("0.00%")
+            self.classification_widget.update_value("-")
+            self.confidence_widget.update_value("0.00%")
 
     def closeEvent(self, event):
         """Handle window close event"""
@@ -269,3 +618,17 @@ class MainView(QWidget):
         except Exception as e:
             logger.error(f"Error in closeEvent: {str(e)}")
             event.accept()
+
+    def toggle_camera_view(self):
+        """Toggle between single and dual camera views"""
+        self.is_two_camera_layout = not self.is_two_camera_layout
+        if self.is_two_camera_layout:
+            self.residue_scan_camera.show()
+            self.object_detection_camera.setMinimumSize(480, 360)
+            self.object_detection_camera.setMaximumSize(480, 360)
+            self.residue_scan_camera.setMinimumSize(480, 360)
+            self.residue_scan_camera.setMaximumSize(480, 360)
+        else:
+            self.residue_scan_camera.hide()
+            self.object_detection_camera.setMinimumSize(640, 360)
+            self.object_detection_camera.setMaximumSize(640, 360)

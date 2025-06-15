@@ -1,17 +1,27 @@
-from PyQt5.QtWidgets import QLabel
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal
-from PyQt5.QtGui import QImage, QPixmap, QFont
+from PyQt5.QtWidgets import QLabel, QGraphicsDropShadowEffect
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QSize
+from PyQt5.QtGui import QImage, QPixmap, QColor, QFont
+import cv2
 import numpy as np
+from src.utils.video_processor import VideoProcessor
 import time
 
 class CameraWidget(QLabel):
-    result_updated = pyqtSignal(dict)
+    result_updated = pyqtSignal(dict)  # Signal to emit detection results
     
     def __init__(self, view_type="object_detection", video_processor=None, parent=None):
         super().__init__(parent)
         self.view_type = view_type
-        self.setMinimumSize(640, 360)  # 16:9 aspect ratio
-        self.setMaximumSize(640, 360)
+        self.setMinimumSize(640, 360)  # Set to 640x640
+        self.setMaximumSize(640, 360)  # Set to 640x640
+        
+        # Create glow effect
+        self.glow_effect = QGraphicsDropShadowEffect()
+        self.glow_effect.setBlurRadius(15)
+        self.glow_effect.setColor(QColor("#14e7a1"))
+        self.glow_effect.setOffset(0, 0)
+        self.glow_effect.setEnabled(False)  # Initially disabled
+        self.setGraphicsEffect(self.glow_effect)
         
         self.setStyleSheet("""
             QLabel {
@@ -19,6 +29,9 @@ class CameraWidget(QLabel):
                 background-color: black;
                 border-radius: 10px;
                 border: 1px solid #3ac194;
+            }
+            QLabel:hover {
+                border: 2px solid #14e7a1;
             }
         """)
         self.setAlignment(Qt.AlignCenter)
@@ -29,12 +42,23 @@ class CameraWidget(QLabel):
         self.update_timer = QTimer()
         self.update_timer.timeout.connect(self.update_frame)
         self.camera_started = False
+        self.error_message = None
         self.last_update_time = 0
-        self.update_interval = 33  # ~30 FPS
+        self.update_interval = 33  # Increased from 50ms to ~30 FPS
         self.frame_buffer = None
-        self.frame_count = 0
-        self.fps = 0
-        self.fps_update_time = time.time()
+        self.processing_frame = False
+    
+    def enterEvent(self, event):
+        # Increase glow on hover
+        self.glow_effect.setBlurRadius(25)
+        self.glow_effect.setColor(QColor("#14e7a1"))
+        super().enterEvent(event)
+    
+    def leaveEvent(self, event):
+        # Reset glow on leave
+        self.glow_effect.setBlurRadius(15)
+        self.glow_effect.setColor(QColor("#3ac194"))
+        super().leaveEvent(event)
     
     def start_camera(self):
         if self.camera_started:
@@ -43,63 +67,106 @@ class CameraWidget(QLabel):
             if self.video_processor:
                 self.clear()
                 self.setText("")
+                self.update()
+                
+                # Start camera with reduced update frequency
                 self.update_timer.start(self.update_interval)
                 self.camera_started = True
+                self.glow_effect.setEnabled(True)
             else:
                 self.setText("No VideoProcessor")
         except Exception as e:
-            self.setText(f"Camera Error\n{str(e)}")
+            self.error_message = str(e)
+            print(f"Error starting camera widget: {self.error_message}")
+            self.setText(f"Camera Error\n{self.error_message}")
             self.camera_started = False
             self.update_timer.stop()
     
     def update_frame(self):
-        if not self.camera_started:
-            self.setText(f"{self.view_type.replace('_', ' ').title()} View")
-            return
+        """Update the camera frame"""
+        try:
+            if not self.video_processor or not self.video_processor.latest_result:
+                return
 
-        current_time = time.time() * 1000  # Convert to milliseconds
-        if current_time - self.last_update_time < self.update_interval:
-            return
+            current_time = time.time()
+            if current_time - self.last_update_time < self.update_interval / 1000.0:
+                return
 
-        if self.video_processor and self.video_processor.latest_result is not None:
             result = self.video_processor.latest_result
-            frames = result['frames']
+            frame = result['frames'].get(self.view_type)
             
-            # Select frame based on view type
-            frame = frames.get(self.view_type, frames['model'])
-
-            if frame is not None and frame.size > 0:
-                # Convert to QImage efficiently
-                height, width = frame.shape[:2]
-                bytes_per_line = 3 * width
-                q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+            if frame is not None:
+                # Convert frame to RGB
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 
-                # Scale pixmap efficiently
-                pixmap = QPixmap.fromImage(q_image)
-                scaled_pixmap = pixmap.scaled(self.size(), Qt.KeepAspectRatio, Qt.FastTransformation)
-                self.setPixmap(scaled_pixmap)
+                # Resize frame to widget size
+                h, w = frame.shape[:2]
+                widget_size = self.size()
+                scaled_frame = cv2.resize(frame, (widget_size.width(), widget_size.height()))
                 
-                # Update FPS
-                self.frame_count += 1
-                if time.time() - self.fps_update_time >= 1.0:
-                    self.fps = self.frame_count
-                    self.frame_count = 0
-                    self.fps_update_time = time.time()
+                # Convert to QImage
+                image = QImage(scaled_frame.data, scaled_frame.shape[1], scaled_frame.shape[0], 
+                             scaled_frame.strides[0], QImage.Format_RGB888)
                 
-                # Emit result
-                self.result_updated.emit(result['data'])
+                # Set the pixmap
+                self.setPixmap(QPixmap.fromImage(image))
+                
+                # Update last update time
                 self.last_update_time = current_time
-            else:
-                self.handle_empty_frame()
-        else:
-            self.handle_empty_frame()
+                
+                # Emit result if available
+                if 'data' in result:
+                    self.result_updated.emit(result['data'])
+                    
+        except Exception as e:
+            print(f"Error updating frame: {str(e)}")
+            self.error_message = str(e)
 
     def handle_empty_frame(self):
+        self.setStyleSheet("""
+            QLabel {
+                color: #3ac194;
+                background-color: black;
+                border-radius: 10px;
+                border: 1px solid #3ac194;
+            }
+            QLabel:hover {
+                border: 2px solid #14e7a1;
+            }
+        """)
         self.setText(f"{self.view_type.replace('_', ' ').title()} View")
+        self.update()
+    
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if self.pixmap():
+            self.setPixmap(self.pixmap().scaled(self.size(), Qt.KeepAspectRatio, Qt.FastTransformation))
+    
+    def closeEvent(self, event):
+        self.update_timer.stop()
+        super().closeEvent(event)
     
     def stop_camera(self):
         self.update_timer.stop()
         self.camera_started = False
+        # Force text to be visible
+        self.setStyleSheet("""
+            QLabel {
+                color: #3ac194;
+                background-color: black;
+                border-radius: 10px;
+                border: 1px solid #3ac194;
+            }
+            QLabel:hover {
+                border: 2px solid #14e7a1;
+            }
+        """)
+        # Clear any displayed frame
         self.clear()
+        # Set text after clearing
         self.setText(f"{self.view_type.replace('_', ' ').title()} View")
-        self.update() 
+        # Disable glow effect when camera stops
+        self.glow_effect.setEnabled(False)
+        # Force update
+        self.update()
+        # No need to call stop_camera on video_processor as it's managed by the main view 
