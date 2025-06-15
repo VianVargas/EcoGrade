@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 import logging
 import traceback
 import math
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -464,48 +465,46 @@ class MainView(QWidget):
             logging.error(traceback.format_exc())
             QMessageBox.critical(self, "Error", f"Failed to change camera layout: {str(e)}")
 
-    def update_detection_results(self, results):
-        """Update detection results and control servos"""
-        try:
-            if not results:
-                return
+    def update_detection_results(self, result):
+        """Update detection results in the UI"""
+        if not result:
+            self._show_no_object_detected()
+            return
 
-            # Update last detection time
-            self.last_detection_time = datetime.now()
+        try:
+            # Extract detection data
+            detection = result.get('detection', {})
+            classification = detection.get('classification', 'Unknown')
+            confidence = detection.get('confidence', 0.0)
             
-            # Store the results
-            self.last_valid_detection = results
+            # Update UI
+            self.status_label.setText(f"Status: Detected")
+            self.classification_label.setText(f"Classification: {classification}")
+            self.confidence_label.setText(f"Confidence: {confidence:.2f}")
             
-            # Update UI widgets
-            self.waste_type_widget.update_value(results.get('waste_type', '-'))
-            self.contamination_widget.update_value(f"{results.get('contamination_score', 0.0):.2f}%")
-            self.classification_widget.update_value(results.get('classification', '-'))
-            self.confidence_widget.update_value(f"{results.get('confidence_level', 0.0):.2f}%")
+            # Update last valid detection
+            self.last_valid_detection = {
+                'classification': classification,
+                'confidence': confidence,
+                'timestamp': time.time()
+            }
             
-            # Control servos based on classification
-            if self.servo_controller:
-                classification = results.get('classification', '').lower()
-                try:
-                    if 'high' in classification:
-                        self.servo_controller.process_command('high')
-                    elif 'mix' in classification:
-                        self.servo_controller.process_command('mix')
-                    elif 'low' in classification:
-                        self.servo_controller.process_command('low')
-                    elif 'reject' in classification:
-                        self.servo_controller.process_command('reject')
-                except Exception as e:
-                    logger.error(f"Error controlling servos: {e}")
-            
+            # Handle servo control if available
+            if self.servo_controller and classification != 'Unknown':
+                self._handle_servo_control(classification)
+                
         except Exception as e:
             logger.error(f"Error updating detection results: {e}")
-            traceback.print_exc()
+            self._show_no_object_detected()
 
     def _show_no_object_detected(self):
-        self.waste_type_widget.update_value('No object detected')
-        self.contamination_widget.update_value('0.00%')
-        self.classification_widget.update_value('No object detected')
-        self.confidence_widget.update_value('0.00%')
+        """Show no object detected state"""
+        self.is_detecting = False
+        self.last_classification = None
+        self.last_valid_detection = None
+        self.status_label.setText("Status: No object detected")
+        self.classification_label.setText("Classification: -")
+        self.confidence_label.setText("Confidence: -")
 
     def toggle_detection(self):
         """Toggle detection on/off"""
@@ -538,10 +537,8 @@ class MainView(QWidget):
                 """)
                 
                 # Show 'Analyzing...' in the results area
-                self.waste_type_widget.update_value("Analyzing...")
-                self.contamination_widget.update_value("Analyzing...")
-                self.classification_widget.update_value("Analyzing...")
-                self.confidence_widget.update_value("Analyzing...")
+                self.classification_label.setText("Analyzing...")
+                self.confidence_label.setText("Analyzing...")
                 
                 # Initialize and start the video processor
                 self.video_processor.initialize()
@@ -554,10 +551,10 @@ class MainView(QWidget):
                 
                 # Set a timer to update results
                 QTimer.singleShot(500, lambda: self.update_detection_results({
-                    'waste_type': 'Analyzing...',
-                    'contamination_score': 0.0,
-                    'classification': 'Analyzing...',
-                    'confidence_level': 0.0
+                    'detection': {
+                        'classification': 'Analyzing...',
+                        'confidence': 0.0
+                    }
                 }))
             else:
                 # Stop detection
@@ -592,10 +589,8 @@ class MainView(QWidget):
                 self.residue_scan_camera.stop_camera()
                 
                 # Reset results
-                self.waste_type_widget.update_value("-")
-                self.contamination_widget.update_value("0.00%")
-                self.classification_widget.update_value("-")
-                self.confidence_widget.update_value("0.00%")
+                self.classification_label.setText("-")
+                self.confidence_label.setText("0.00%")
         except Exception as e:
             print(f"Error in toggle_detection: {str(e)}")
             self.is_detecting = False
@@ -605,10 +600,8 @@ class MainView(QWidget):
             self.residue_scan_camera.stop_camera()
             
             # Reset results on error
-            self.waste_type_widget.update_value("-")
-            self.contamination_widget.update_value("0.00%")
-            self.classification_widget.update_value("-")
-            self.confidence_widget.update_value("0.00%")
+            self.classification_label.setText("-")
+            self.confidence_label.setText("0.00%")
 
     def closeEvent(self, event):
         """Handle window close event"""

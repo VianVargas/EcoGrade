@@ -25,131 +25,59 @@ class VideoProcessor:
             cls._instance = super(VideoProcessor, cls).__new__(cls)
         return cls._instance
     
-    def __init__(self, model_path='best.pt'):
-        self.model = YOLO(model_path, verbose=False)
-        self.is_running = False
-        self.current_frame = None
-        self.frame_lock = threading.Lock()
-        self.detection_interval = 0.2  # Increased from 0.1 to reduce processing load
-        self.last_detection_time = 0
-        self.detection_callback = None
-        self.camera = None
-        self.frame_count = 0
-        self.processing_frame = False
-        self.last_detection_result = None
-        self.detection_thread = None
-        self.detection_running = False
-        self.detection_lock = threading.Lock()
-        self.frame_skip = 2  # Increased from 2 to reduce processing load
-        
-        # Performance metrics
-        self.performance_metrics = {
-            'fps': [],
-            'preprocess': [],
-            'inference': [],
-            'postprocess': [],
-            'total': [],
-            'confidence': []  # Add confidence tracking
-        }
-        self.metrics_counter = 0
-        self.metrics_interval = 30  # Print metrics every 30 frames
-        
-        # Tracking variables
-        self.tracker = cv2.TrackerCSRT_create()
-        self.tracking = False
-        self.tracked_bbox = None
-        self.tracking_lost_count = 0
-        self.max_tracking_lost = 30
-        self.last_valid_bbox = None
-        self.smoothing_factor = 0.7
-        self.min_confidence = 0.5
-        self.min_iou = 0.4
-        self.bbox_history = []
-        self.max_history = 5
+    def __init__(self):
+        """Initialize the video processor"""
         self.cap = None
-        self.frame_queue = Queue(maxsize=2)
-        self.running = False
-        self.processing = False
-        self.last_boxes = []
-        self.detection_start_time = None
-        self.criteria_met = False
-        self.last_classification = '-'
-        self.current_contamination_score = 0
-        self.background = None
-        self.background_captured = False
-        self.animation_time = 0
-        self.zoom_factor = 1.0
-        self.initialized = True
+        self.is_running = False
         self.latest_result = None
-        self.object_trackers = {}
-        self.next_object_id = 1
-        self.finalized_ids = set()
-        self._frame_skip_counter = 0
-        self.crop_factor = 0.9
-        self.frame_size = (480, 640)  # Reduced from (640, 480) for better performance
-        self.finalized_timeout = 5.0
-        self.finalized_times = {}
-        self.min_detection_area = 10000
-        self.max_detection_area = 300000
-        self.processing_size = (320, 240)  # Smaller size for processing
+        self.processing_thread = None
+        self.frame_skip = 2
+        self.detection_interval = 0.1
+        self.processing_size = (416, 416)
+        self.update_interval = 33  # ~30 FPS
         
-        # Cooldown timer for detections
-        self.last_detection_times = {}  # Dictionary to store last detection time per waste type
-        self.detection_cooldown = 3.0  # Cooldown period in seconds
+        # Initialize camera
+        self._initialize_camera()
 
-    def initialize(self):
-        if not VideoProcessor._initialized:
-            print("Trying to connect to camera index 0...")
-            VideoProcessor._camera = cv2.VideoCapture(0)
-            if not VideoProcessor._camera.isOpened():
-                raise Exception("Could not connect to camera at index 0. Please check your camera connection.")
-            try:
-                # Set optimized resolution for Raspberry Pi
-                VideoProcessor._camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-                VideoProcessor._camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-                VideoProcessor._camera.set(cv2.CAP_PROP_FPS, 30)
-                VideoProcessor._camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-                VideoProcessor._camera.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
-                VideoProcessor._camera.set(cv2.CAP_PROP_EXPOSURE, -6)
-                VideoProcessor._camera.set(cv2.CAP_PROP_GAIN, 100)
-                actual_width = VideoProcessor._camera.get(cv2.CAP_PROP_FRAME_WIDTH)
-                actual_height = VideoProcessor._camera.get(cv2.CAP_PROP_FRAME_HEIGHT)
-                print(f"Camera resolution set to: {actual_width}x{actual_height}")
-            except Exception as e:
-                print(f"Warning: Could not set all camera properties: {str(e)}")
-            try:
-                self.model = YOLO("best.pt", verbose=False)
-                self.model.to('cpu')  # Force CPU usage
-                print("Model loaded successfully")
-            except Exception as e:
-                raise Exception(f"Failed to load YOLO model: {str(e)}")
-            try:
-                ret, frame = VideoProcessor._camera.read()
-                if ret:
-                    frame = cv2.resize(frame, self.frame_size)
-                    frame = cv2.GaussianBlur(frame, (5, 5), 0)
-                    frame = cv2.convertScaleAbs(frame, alpha=1.2, beta=10)
-                    self.background = frame.copy()
-                    self.background_captured = True
-                    print("Initial background captured")
-                else:
-                    print("Warning: Could not capture initial background")
-            except Exception as e:
-                print(f"Warning: Error capturing initial background: {str(e)}")
-            VideoProcessor._initialized = True
-        self.cap = VideoProcessor._camera
+    def _initialize_camera(self):
+        """Initialize the camera with error handling"""
+        try:
+            self.cap = cv2.VideoCapture(0)
+            if not self.cap.isOpened():
+                raise Exception("Failed to open camera")
+            
+            # Set camera properties
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            self.cap.set(cv2.CAP_PROP_FPS, 30)
+            
+            logger.info("Camera initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing camera: {e}")
+            self.cap = None
+            raise
 
     def start(self):
-        if not self.running:
-            self.running = True
-            self.capture_thread = threading.Thread(target=self._capture_frames, daemon=True)
-            self.process_thread = threading.Thread(target=self._process_frames, daemon=True)
-            self.capture_thread.start()
-            self.process_thread.start()
+        """Start the video processing thread"""
+        if self.is_running:
+            return
+
+        if not self.cap:
+            self._initialize_camera()
+
+        self.is_running = True
+        self.processing_thread = threading.Thread(target=self._capture_frames)
+        self.processing_thread.daemon = True
+        self.processing_thread.start()
 
     def stop(self):
-        self.running = False
-        self.latest_result = None
+        """Stop the video processing thread"""
+        self.is_running = False
+        if self.processing_thread:
+            self.processing_thread.join()
+        if self.cap:
+            self.cap.release()
+            self.cap = None
 
     def release_camera(self):
         if VideoProcessor._camera is not None:
@@ -158,7 +86,7 @@ class VideoProcessor:
             VideoProcessor._initialized = False
 
     def _capture_frames(self):
-        while self.running:
+        while self.is_running:
             ret, frame = self.cap.read()
             if ret:
                 if not self.frame_queue.full():
