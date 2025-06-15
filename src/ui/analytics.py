@@ -99,50 +99,26 @@ class AnalyticsWidget(QWidget):
         # Enhanced background
         self.setStyleSheet(f"background-color: {COLORS['background']};")
 
-        # Add a scroll area for the analytics content
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-        scroll.setStyleSheet(f"""
-            QScrollArea {{ 
-                border: none; 
-                background: {COLORS['background']}; 
-            }}
-            QScrollBar:vertical {{
-                background: {COLORS['background']};
-                width: 10px;
-                border-radius: 5px;
-            }}
-            QScrollBar::handle:vertical {{
-                background: {COLORS['border']};
-                border-radius: 5px;
-                min-height: 20px;
-            }}
-            QScrollBar::handle:vertical:hover {{
-                background: {COLORS['hover']};
-            }}
-        """)
-
+        # Create content widget without scroll area for fixed layout
         content_widget = QWidget()
         content_widget.setStyleSheet(f"background-color: {COLORS['background']};")
         content_layout = QVBoxLayout(content_widget)
-        content_layout.setSpacing(20)  # Increased spacing between sections
-        content_layout.setContentsMargins(20, 20, 20, 20)  # Better margins
+        content_layout.setSpacing(10)  # Reduced spacing
+        content_layout.setContentsMargins(10, 10, 10, 10)  # Reduced margins
 
         # Top section (Table and Pie Chart)
         top_layout = QHBoxLayout()
-        top_layout.setSpacing(20)  # Increased spacing between panels
+        top_layout.setSpacing(10)  # Reduced spacing
         
         # Enhanced Table Panel
         table_panel = Panel("Recent Detections")
         table_panel.content_layout.setContentsMargins(5, 0, 5, 0)
         table_panel.content_layout.setSpacing(0)
         
-        # Enhanced filter controls
+        # Enhanced filter controls - more compact
         filter_layout = QHBoxLayout()
-        filter_layout.setSpacing(15)  # Better spacing between controls
-        filter_layout.setContentsMargins(20, 15, 20, 15)
+        filter_layout.setSpacing(8)  # Reduced spacing
+        filter_layout.setContentsMargins(10, 8, 10, 8)  # Reduced margins
         
         # Enhanced filter labels and dropdowns
         filter_style = f"""
@@ -291,17 +267,17 @@ class AnalyticsWidget(QWidget):
         # Add filter layout to panel
         table_panel.content_layout.addLayout(filter_layout)
         
-        # Enhanced table
+        # Enhanced table - more compact
         self.table = QTableWidget()
         self.table.setColumnCount(6)
         self.table.setHorizontalHeaderLabels([
             'ID', 'Type', 'Confidence', 'Contamination', 'Classification', 'Timestamp'
         ])
         
-        # Set column widths
-        self.table.setColumnWidth(0, 60)   # ID column
-        self.table.setColumnWidth(1, 120)  # Type column
-        self.table.setColumnWidth(2, 90)   # Confidence column
+        # Set column widths - optimized for smaller space
+        self.table.setColumnWidth(0, 40)   # ID column
+        self.table.setColumnWidth(1, 90)   # Type column
+        self.table.setColumnWidth(2, 70)   # Confidence column
         
         # Set header and column behavior
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
@@ -311,14 +287,14 @@ class AnalyticsWidget(QWidget):
         self.table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.Stretch)
         
-        # Enhanced table properties
+        # Enhanced table properties - more compact
         self.table.setShowGrid(True)
         self.table.setGridStyle(Qt.SolidLine)
         self.table.setFrameShape(QFrame.NoFrame)
         self.table.setFrameShadow(QFrame.Plain)
         self.table.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.table.setMaximumHeight(320)  # Slightly taller for better readability
+        self.table.setMaximumHeight(250)  # Reduced height to fit better
         self.table.setAlternatingRowColors(True)
         
         # Enhanced table style
@@ -383,31 +359,33 @@ class AnalyticsWidget(QWidget):
         """)
         table_panel.content_layout.addWidget(self.table)
         
-        # Enhanced Pie Chart Panel
+        # Enhanced Pie Chart Panel - more compact
         pie_panel = Panel("Waste Distribution")  
         self.pie_chart = PieChartWidget()
-        self.pie_chart.setMinimumSize(280, 280)  # Slightly larger for better visibility
-        self.pie_chart.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.pie_chart.setMinimumSize(280, 280)  # Increased from 200x200
+        self.pie_chart.setMaximumSize(320, 320)  # Increased from 220x220
+        self.pie_chart.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         pie_panel.content_layout.addWidget(self.pie_chart)
         
         # Add panels to top layout
-        top_layout.addWidget(table_panel, 2)
-        top_layout.addWidget(pie_panel, 1)
+        top_layout.addWidget(table_panel, 2)  # Reduced from 3 to give more space to pie chart
+        top_layout.addWidget(pie_panel, 1)    # Pie chart gets more space
         
-        # Enhanced Bar Chart Panel
+        # Enhanced Bar Chart Panel - more compact
         bar_panel = Panel("Waste Generation by Type")
         
         # Add bar chart with better sizing
         self.bar_chart = BarChartWidget()
-        self.bar_chart.setMinimumHeight(280)  # Better height for readability
-        self.bar_chart.setMaximumHeight(320)
+        self.bar_chart.setMinimumHeight(180)  # Reduced height
+        self.bar_chart.setMaximumHeight(220)  # Maximum height constraint
         bar_panel.content_layout.addWidget(self.bar_chart)
         
         # Add layouts to main layout
         content_layout.addLayout(top_layout)
         content_layout.addWidget(bar_panel)
-        scroll.setWidget(content_widget)
-        main_layout.addWidget(scroll)
+        
+        # Add content widget directly (no scroll area)
+        main_layout.addWidget(content_widget)
         
         # Schedule initial updates after UI is set up for smoother startup
         QTimer.singleShot(0, self.update_data)
@@ -761,20 +739,25 @@ class AnalyticsWidget(QWidget):
                 cursor = conn.cursor()
                 
                 # Get IDs of selected rows
-                selected_ids = []
+                ids_to_delete = []
                 for row in row_indices:
                     id_item = self.table.item(row, 0)
                     if id_item:
-                        selected_ids.append(id_item.text())  # Keep as string
+                        ids_to_delete.append(int(id_item.text()))
                 
-                # Delete from database using string IDs
-                placeholders = ','.join(['?'] * len(selected_ids))
-                cursor.execute(f"DELETE FROM detections WHERE id IN ({placeholders})", selected_ids)
+                # Delete rows from database
+                placeholders = ','.join('?' * len(ids_to_delete))
+                cursor.execute(f"DELETE FROM detections WHERE id IN ({placeholders})", ids_to_delete)
                 conn.commit()
                 conn.close()
                 
-                # Update the table
+                # Update the table and charts
                 self.update_data()
                 
+                # Show success message
+                QMessageBox.information(self, "Success", "Selected items have been deleted.")
+                
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to delete items: {str(e)}") 
+                QMessageBox.critical(self, "Error", f"Failed to delete items: {str(e)}")
+                if 'conn' in locals():
+                    conn.close() 

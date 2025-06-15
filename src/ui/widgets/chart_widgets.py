@@ -38,7 +38,7 @@ class PieChartWidget(FigureCanvas):
                 spine.set_visible(True)
                 spine.set_color('white')
                 spine.set_linewidth(1)
-            self.ax.text(0.5, 0.5, 'No Data', color='white', ha='center', va='center', fontsize=16, fontweight='bold', transform=self.ax.transAxes)
+            self.ax.text(0.5, 0.5, 'No Data', color='white', ha='center', va='center', fontsize=12, fontweight='bold', transform=self.ax.transAxes)
             self.fig.tight_layout()
             self.draw()
             return
@@ -73,7 +73,7 @@ class PieChartWidget(FigureCanvas):
             )
         for text in self.legend.get_texts():
                 text.set_color('white')
-                text.set_fontsize(12)
+                text.set_fontsize(6)
         
         # Set fixed aspect ratio and adjust layout
         self.ax.set_aspect('equal')

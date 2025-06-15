@@ -554,6 +554,7 @@ class MainView(QWidget):
             if self.servo_controller:
                 classification = results.get('classification', '').lower()
                 try:
+                    # Map classification to servo command
                     if 'high' in classification:
                         self.servo_controller.process_command('high')
                     elif 'mix' in classification:
@@ -562,8 +563,11 @@ class MainView(QWidget):
                         self.servo_controller.process_command('low')
                     elif 'reject' in classification:
                         self.servo_controller.process_command('reject')
+                    else:
+                        logger.warning(f"Unknown classification: {classification}")
                 except Exception as e:
                     logger.error(f"Error controlling servos: {e}")
+                    traceback.print_exc()
             
         except Exception as e:
             logger.error(f"Error updating detection results: {e}")

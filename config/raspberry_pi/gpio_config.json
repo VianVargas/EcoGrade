@@ -4,13 +4,23 @@
       "channel": 0,
       "min_pulse": 500,
       "max_pulse": 2500,
-      "initial_position": 120
+      "initial_position": 120,
+      "angles": {
+        "left": 60,
+        "right": 180,
+        "center": 120
+      }
     },
     "flap": {
       "channel": 4,
       "min_pulse": 500,
       "max_pulse": 2500,
-      "initial_position": 103
+      "initial_position": 103,
+      "angles": {
+        "left": 50,
+        "right": 150,
+        "center": 103
+      }
     }
   },
   "pins": {

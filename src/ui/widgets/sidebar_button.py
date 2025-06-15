@@ -12,6 +12,7 @@ class SidebarButton(QPushButton):
         self._hovered = False
         self.wave_timer = QTimer(self)
         self.wave_timer.timeout.connect(self.updateWave)
+        self.wave_timer.setInterval(33)  # Reduced from 16ms to 33ms (~30 FPS)
         self.setCursor(Qt.PointingHandCursor)
         self.icon_path = icon_path
         self.icon = None
@@ -38,7 +39,7 @@ class SidebarButton(QPushButton):
         super().leaveEvent(event)
 
     def updateWave(self):
-        self._wave_phase += 0.05
+        self._wave_phase += 0.03  # Reduced from 0.05 to 0.03
         self.update()
 
     def paintEvent(self, event):

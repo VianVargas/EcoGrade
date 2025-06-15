@@ -43,7 +43,7 @@ class CameraWidget(QLabel):
         self.camera_started = False
         self.error_message = None
         self.last_update_time = 0
-        self.update_interval = 33  # Increased from 50ms to ~30 FPS
+        self.update_interval = 50  # Increased from 33ms to 50ms (20 FPS)
         self.frame_buffer = None
         self.processing_frame = False
     

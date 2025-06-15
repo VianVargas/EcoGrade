@@ -16,8 +16,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("EcoGrade")
-        self.setFixedSize(1080, 720)  # Fixed size at 1080x720
-        self.setWindowFlags(self.windowFlags() & ~Qt.WindowMaximizeButtonHint)  # Disable maximize button
+        self.setFixedSize(1280, 720)  # Fixed size at 1280x720
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowMaximizeButtonHint & ~Qt.WindowMinimizeButtonHint)  # Disable maximize and minimize buttons
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #1a1a1a;
@@ -52,7 +52,7 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon('assets/icon.png'))
         
         # Initialize status bar
-        self.statusBar().showMessage('Ready')
+        #self.statusBar().showMessage('Ready')
         
         self.current_view = "front"
         self.initUI()
@@ -63,9 +63,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('EcoGrade')
         self.setWindowIcon(QIcon('src/ui/assets/LOGO.ico'))
         
-        # Set minimum and maximum window size
-        self.setMinimumSize(1400, 900)  # Minimum size to ensure UI elements are visible
-        self.setMaximumSize(1920, 1080)  # Maximum size to prevent excessive scaling
+        # Set fixed size and disable resizing
+        self.setFixedSize(1280, 720)  # Fixed size at 1280x720
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowMaximizeButtonHint & ~Qt.WindowMinimizeButtonHint)  # Disable maximize and minimize buttons
         
         # Create main layout
         main_layout = QHBoxLayout()
@@ -97,10 +97,6 @@ class MainWindow(QMainWindow):
         
         # Center the window on screen
         self.center()
-        
-        # Start in maximized state
-        self.showMaximized()
-        self.setWindowState(Qt.WindowMaximized)
         
         # Show front page and hide sidebar initially
         self.show_front_page()
