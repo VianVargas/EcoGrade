@@ -173,9 +173,28 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         """Handle window close event"""
-        if hasattr(self, 'main_view') and hasattr(self.main_view, 'video_processor'):
-            self.main_view.video_processor.stop()
-        event.accept()
+        try:
+            # Stop video processing
+            if hasattr(self, 'main_view') and hasattr(self.main_view, 'video_processor'):
+                self.main_view.video_processor.stop()
+                
+            # Stop servo controller
+            if hasattr(self, 'main_view') and hasattr(self.main_view, 'servo_controller'):
+                self.main_view.servo_controller.cleanup()
+                
+            # Close camera
+            if hasattr(self, 'main_view') and hasattr(self.main_view, 'camera'):
+                self.main_view.camera.release()
+                
+            # Save settings
+            self.save_settings()
+            
+            # Accept the close event
+            event.accept()
+            
+        except Exception as e:
+            logging.error(f"Error during cleanup: {e}")
+            event.accept()
 
 def main():
     app = QApplication(sys.argv)

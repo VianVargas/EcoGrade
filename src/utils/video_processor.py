@@ -30,7 +30,7 @@ class VideoProcessor:
         self.is_running = False
         self.current_frame = None
         self.frame_lock = threading.Lock()
-        self.detection_interval = 0.2  # Increased from 0.1 to reduce processing load
+        self.detection_interval = 0.1  # Reduced from 0.2 to 0.1 for faster response
         self.last_detection_time = 0
         self.detection_callback = None
         self.camera = None
@@ -40,7 +40,7 @@ class VideoProcessor:
         self.detection_thread = None
         self.detection_running = False
         self.detection_lock = threading.Lock()
-        self.frame_skip = 2  # Increased from 2 to reduce processing load
+        self.frame_skip = 1  # Reduced from 2 to 1 for more frequent processing
         
         # Performance metrics
         self.performance_metrics = {
@@ -49,10 +49,10 @@ class VideoProcessor:
             'inference': [],
             'postprocess': [],
             'total': [],
-            'confidence': []  # Add confidence tracking
+            'confidence': []
         }
         self.metrics_counter = 0
-        self.metrics_interval = 30  # Print metrics every 30 frames
+        self.metrics_interval = 30
         
         # Tracking variables
         self.tracker = cv2.TrackerCSRT_create()
@@ -86,16 +86,16 @@ class VideoProcessor:
         self.finalized_ids = set()
         self._frame_skip_counter = 0
         self.crop_factor = 0.9
-        self.frame_size = (480, 640)  # Reduced from (640, 480) for better performance
+        self.frame_size = (480, 640)
         self.finalized_timeout = 5.0
         self.finalized_times = {}
         self.min_detection_area = 10000
         self.max_detection_area = 300000
-        self.processing_size = (320, 240)  # Smaller size for processing
+        self.processing_size = (416, 416)  # Increased from (320, 240) for better accuracy
         
         # Cooldown timer for detections
-        self.last_detection_times = {}  # Dictionary to store last detection time per waste type
-        self.detection_cooldown = 3.0  # Cooldown period in seconds
+        self.last_detection_times = {}
+        self.detection_cooldown = 1.0  # Reduced from 3.0 to 1.0 for faster response
 
     def initialize(self):
         if not VideoProcessor._initialized:
@@ -355,8 +355,8 @@ class VideoProcessor:
                             if self.detection_start_time is None:
                                 self.detection_start_time = current_time
                                 classification = 'Analyzing...'
-                            elif current_time - self.detection_start_time >= 0.5:
-                                if current_obj_id and self.object_trackers[current_obj_id]['stable_count'] >= 5:  # Increased from 3
+                            elif current_time - self.detection_start_time >= 0.3:  # Reduced from 0.5 to 0.3
+                                if current_obj_id and self.object_trackers[current_obj_id]['stable_count'] >= 3:  # Reduced from 5 to 3
                                     classification = classify_output(current_waste_type, self.current_contamination_score)
                                     self.object_trackers[current_obj_id]['result'] = {
                                         'id': current_obj_id,
