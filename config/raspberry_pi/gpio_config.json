@@ -1,28 +1,16 @@
 {
   "servos": {
-    "high_value": {
+    "main_arm": {
       "channel": 0,
       "min_pulse": 500,
       "max_pulse": 2500,
-      "initial_position": 0
+      "initial_position": 120
     },
-    "low_value": {
-      "channel": 1,
+    "flap": {
+      "channel": 4,
       "min_pulse": 500,
       "max_pulse": 2500,
-      "initial_position": 0
-    },
-    "mix": {
-      "channel": 2,
-      "min_pulse": 500,
-      "max_pulse": 2500,
-      "initial_position": 0
-    },
-    "reject": {
-      "channel": 3,
-      "min_pulse": 500,
-      "max_pulse": 2500,
-      "initial_position": 0
+      "initial_position": 103
     }
   },
   "pins": {

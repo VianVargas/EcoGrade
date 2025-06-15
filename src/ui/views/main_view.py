@@ -533,7 +533,7 @@ class MainView(QWidget):
             QMessageBox.critical(self, "Error", f"Failed to change camera layout: {str(e)}")
 
     def update_detection_results(self, results):
-        """Update detection results and control servos"""
+        """Update UI with detection results and control servos"""
         try:
             if not results:
                 return
