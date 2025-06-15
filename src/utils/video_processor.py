@@ -316,7 +316,7 @@ class VideoProcessor:
                                     7: 'UHT Box'
                                 }
                                 
-                                if conf > 0.8: # Confidence level threshold
+                                if conf > 0.7: # Confidence level threshold
                                     current_waste_type = waste_types.get(cls_id, 'Unknown')
                                     if current_obj_id:
                                         self.object_trackers[current_obj_id]['waste_type'] = current_waste_type
