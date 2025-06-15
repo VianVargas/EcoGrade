@@ -13,8 +13,6 @@ from datetime import datetime, timedelta
 import logging
 import traceback
 import math
-import time
-from PyQt5.QtWidgets import QApplication
 
 # Configure logging
 logging.basicConfig(
@@ -123,8 +121,6 @@ class MainView(QWidget):
         self.detection_interval = 0.1  # Reduce from 0.2 to 0.1
         self.processing_size = (416, 416)  # Increase from (320, 240)
         self.update_interval = 33  # Increase from 50ms to ~30 FPS
-        self.last_servo_command_time = 0  # Track last servo command time
-        self.command_cooldown = 5.0  # 5 seconds cooldown between commands
         
         # Initialize servo controller
         try:
@@ -135,7 +131,6 @@ class MainView(QWidget):
             self.servo_controller = None
         
         self.setup_ui()
-        self.setup_connections()
         self._show_no_object_detected()
         
     def setup_ui(self):
@@ -534,104 +529,42 @@ class MainView(QWidget):
             logging.error(traceback.format_exc())
             QMessageBox.critical(self, "Error", f"Failed to change camera layout: {str(e)}")
 
-    def setup_connections(self):
-        """Setup signal connections"""
-        # Connect video processor detection callback
-        if hasattr(self, 'video_processor'):
-            self.video_processor.detection_callback = self.update_detection_results
-            
-        # Connect camera selection
-        if hasattr(self, 'camera_selector'):
-            self.camera_selector.currentIndexChanged.connect(self.on_camera_changed)
-            
-        # Connect start/stop button
-        if hasattr(self, 'start_button'):
-            self.start_button.clicked.connect(self.toggle_detection)
-            
-        # Connect settings button
-        if hasattr(self, 'settings_button'):
-            self.settings_button.clicked.connect(self.show_settings)
+    def update_detection_results(self, results):
+        """Update detection results and control servos"""
+        try:
+            if not results:
+                return
 
-    def update_detection_results(self, result):
-        """Update UI with detection results"""
-        if not result:
-            return
+            # Update last detection time
+            self.last_detection_time = datetime.now()
             
-        # Store the last detection result
-        self.last_valid_detection = result
-        
-        # Update UI widgets first
-        if hasattr(self, 'waste_type_widget'):
-            self.waste_type_widget.update_value(result.get('waste_type', '-'))
+            # Store the results
+            self.last_valid_detection = results
             
-        if hasattr(self, 'confidence_widget'):
-            confidence = result.get('confidence_level', 0)
-            self.confidence_widget.update_value(f"{confidence:.2f}%")
+            # Update UI widgets
+            self.waste_type_widget.update_value(results.get('waste_type', '-'))
+            self.contamination_widget.update_value(f"{results.get('contamination_score', 0.0):.2f}%")
+            self.classification_widget.update_value(results.get('classification', '-'))
+            self.confidence_widget.update_value(f"{results.get('confidence_level', 0.0):.2f}%")
             
-        if hasattr(self, 'contamination_widget'):
-            contamination = result.get('contamination_score', 0)
-            self.contamination_widget.update_value(f"{contamination:.2f}%")
+            # Control servos based on classification
+            if self.servo_controller:
+                classification = results.get('classification', '').lower()
+                try:
+                    if 'high' in classification:
+                        self.servo_controller.process_command('high')
+                    elif 'mix' in classification:
+                        self.servo_controller.process_command('mix')
+                    elif 'low' in classification:
+                        self.servo_controller.process_command('low')
+                    elif 'reject' in classification:
+                        self.servo_controller.process_command('reject')
+                except Exception as e:
+                    logger.error(f"Error controlling servos: {e}")
             
-        if hasattr(self, 'classification_widget'):
-            classification = result.get('classification', '-')
-            self.classification_widget.update_value(classification)
-            
-        # Force immediate UI update
-        QApplication.processEvents()
-        
-        # Update detection history
-        if hasattr(self, 'detection_history'):
-            timestamp = datetime.now().strftime("%H:%M:%S")
-            history_text = f"[{timestamp}] {result.get('waste_type', '-')} - {result.get('classification', '-')}"
-            self.detection_history.append(history_text)
-            
-            # Keep only last 10 entries
-            if len(self.detection_history) > 10:
-                self.detection_history.pop(0)
-                
-            # Update history display
-            if hasattr(self, 'history_text'):
-                self.history_text.setPlainText('\n'.join(self.detection_history))
-                
-        # Force immediate UI update again
-        QApplication.processEvents()
-        
-        # Process servo command after UI updates
-        if hasattr(self, 'servo_controller') and self.servo_controller:
-            current_time = time.time()
-            # Check if enough time has passed since last command
-            if current_time - self.last_servo_command_time >= self.command_cooldown:
-                classification = result.get('classification', '-')
-                # Map classification to servo commands
-                servo_command = None
-                if classification == 'High Value':
-                    servo_command = 'high'
-                elif classification == 'Low Value':
-                    servo_command = 'low'
-                elif classification == 'Rejected':
-                    servo_command = 'reject'
-                elif classification == 'Mixed':
-                    servo_command = 'mix'
-                    
-                # Process valid servo commands
-                if servo_command:
-                    try:
-                        logger.info(f"Processing servo command: {servo_command} (from classification: {classification})")
-                        self.servo_controller.process_command(servo_command)
-                        self.last_servo_command_time = current_time
-                        logger.info(f"Servo command {servo_command} executed successfully")
-                        
-                        # Print performance metrics
-                        print("\n=== Performance Metrics ===")
-                        print(f"Waste Type: {result.get('waste_type', '-')}")
-                        print(f"Classification: {classification}")
-                        print(f"Confidence: {result.get('confidence_level', 0):.2f}%")
-                        print(f"Contamination: {result.get('contamination_score', 0):.2f}%")
-                        print(f"Servo Command: {servo_command}")
-                        print("========================\n")
-                        
-                    except Exception as e:
-                        logger.error(f"Error executing servo command {servo_command}: {e}")
+        except Exception as e:
+            logger.error(f"Error updating detection results: {e}")
+            traceback.print_exc()
 
     def _show_no_object_detected(self):
         self.waste_type_widget.update_value('No object detected')

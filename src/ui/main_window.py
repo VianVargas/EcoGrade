@@ -1,11 +1,11 @@
 from PyQt5.QtWidgets import QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QStackedWidget, QDesktopWidget, QMessageBox, QApplication
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QIcon
-from .views.front_page import FrontPageWidget
-from .views.main_view import MainView
-from .analytics import AnalyticsWidget
-from .widgets.sidebar_button import SidebarButton
-from .views.about_view import AboutView
+from src.ui.views.front_page import FrontPageWidget
+from src.ui.views.main_view import MainView
+from src.ui.analytics import AnalyticsWidget
+from src.ui.widgets.sidebar_button import SidebarButton
+from src.ui.views.about_view import AboutView
 import sys
 import logging
 import traceback
@@ -184,23 +184,23 @@ class MainWindow(QMainWindow):
             )
             
             if reply == QMessageBox.Yes:
-            # Stop the video processor
-            if hasattr(self, 'main_view') and hasattr(self.main_view, 'video_processor'):
-                self.main_view.video_processor.stop()
-            
-            # Stop any running cameras
-            if hasattr(self, 'main_view'):
-                if hasattr(self.main_view, 'object_detection_camera'):
-                    self.main_view.object_detection_camera.stop_camera()
-                if hasattr(self.main_view, 'residue_scan_camera'):
-                    self.main_view.residue_scan_camera.stop_camera()
-            
-            # Accept the close event
-            event.accept()
+                # Stop the video processor
+                if hasattr(self, 'main_view') and hasattr(self.main_view, 'video_processor'):
+                    self.main_view.video_processor.stop()
+                
+                # Stop any running cameras
+                if hasattr(self, 'main_view'):
+                    if hasattr(self.main_view, 'object_detection_camera'):
+                        self.main_view.object_detection_camera.stop_camera()
+                    if hasattr(self.main_view, 'residue_scan_camera'):
+                        self.main_view.residue_scan_camera.stop_camera()
+                
+                # Accept the close event
+                event.accept()
             else:
                 # Reject the close event
                 event.ignore()
-            
+                
         except Exception as e:
             logging.error(f"Error during window close: {str(e)}")
             logging.error(traceback.format_exc())
