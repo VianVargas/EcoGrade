@@ -124,8 +124,19 @@ class MainView(QWidget):
         self.last_servo_command_time = 0  # Track last servo command time
         self.command_cooldown = 5.0  # 5 seconds cooldown between commands
         
+        # Camera layout settings
+        self.is_two_camera_layout = False  # Start with single camera layout
+        self.is_detecting = False  # Track detection state
+        self.frame_skip = 2  # Reduce from 3 to 2
+        self.detection_interval = 0.1  # Reduce from 0.2 to 0.1
+        
         # Initialize servo controller
-        self.servo_controller = ServoController()
+        try:
+            self.servo_controller = ServoController()
+            logging.info("Servo controller initialized successfully")
+        except Exception as e:
+            logging.error(f"Failed to initialize servo controller: {e}")
+            self.servo_controller = None
         
         self.setup_ui()
         self.setup_connections()
