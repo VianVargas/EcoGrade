@@ -136,13 +136,19 @@ class MainView(QWidget):
     def setup_ui(self):
         """Set up the user interface"""
         # Create main layout
-        main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(20, 20, 20, 20)  # Add margins
-        main_layout.setSpacing(20)  # Add spacing between widgets
+        main_layout = QHBoxLayout()  # Changed to horizontal layout
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(20)
+        
+        # Left side - Camera feeds
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(20)
         
         # Create camera layout
         camera_layout = QHBoxLayout()
-        camera_layout.setSpacing(20)  # Add spacing between cameras
+        camera_layout.setSpacing(20)
         
         # Create camera widgets
         self.object_detection_camera = CameraWidget("object_detection", self.video_processor)
@@ -152,8 +158,8 @@ class MainView(QWidget):
         camera_layout.addWidget(self.object_detection_camera)
         camera_layout.addWidget(self.residue_scan_camera)
         
-        # Add camera layout to main layout
-        main_layout.addLayout(camera_layout)
+        # Add camera layout to left layout
+        left_layout.addLayout(camera_layout)
         
         # Create status layout
         status_layout = QHBoxLayout()
@@ -182,113 +188,87 @@ class MainView(QWidget):
         status_layout.addWidget(self.status_label)
         status_layout.addWidget(self.classification_label)
         
-        # Add status layout to main layout
-        main_layout.addLayout(status_layout)
+        # Add status layout to left layout
+        left_layout.addLayout(status_layout)
+        
+        # Right side - Detection results
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setSpacing(20)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Create result panels
+        self.waste_type_widget = self.create_result_panel("WASTE TYPE:", "No object detected")
+        self.confidence_widget = self.create_result_panel("CONFIDENCE LEVEL:", "0.00%")
+        self.contamination_widget = self.create_result_panel("CONTAMINATION:", "0.00%")
+        self.classification_widget = self.create_result_panel("RESULT:", "No object detected")
+        
+        # Add result panels to right layout
+        right_layout.addWidget(self.waste_type_widget)
+        right_layout.addWidget(self.confidence_widget)
+        right_layout.addWidget(self.contamination_widget)
+        right_layout.addWidget(self.classification_widget)
+        right_layout.addStretch()
+        
+        # Add left and right widgets to main layout
+        main_layout.addWidget(left_widget, 3)  # Camera section takes more space
+        main_layout.addWidget(right_widget, 1)  # Results section
         
         # Set the main layout
         self.setLayout(main_layout)
         
         # Start video processing
         self.video_processor.start()
+        
+        # Initialize with no object detected
+        self._show_no_object_detected()
 
     def create_result_panel(self, title, value):
-        """Create a result panel with analytics styling"""
+        """Create a result panel with title and value"""
         panel = QWidget()
-        panel.setFixedHeight(80)
-        panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         panel.setStyleSheet("""
             QWidget {
                 background-color: #1e293b;
-                border-radius: 18px;
+                border-radius: 12px;
                 border: 1px solid #334155;
-                padding: 0px;
+                padding: 10px;
+            }
+            QLabel {
+                color: #3ac194;
+                font-size: 14px;
             }
         """)
         
         layout = QVBoxLayout(panel)
-        layout.setContentsMargins(20, 12, 20, 12)
-        layout.setSpacing(8)
+        layout.setSpacing(5)
         
-        # Title label
         title_label = QLabel(title)
-        title_label.setFont(QFont('Fredoka', 16, QFont.Normal))
-        title_label.setStyleSheet("""
-            QLabel {
-                color: #94a3b8;
-                background-color: transparent;
-                border: none;
-                font-weight: 500;
-            }
-        """)
+        title_label.setStyleSheet("color: #94a3b8; font-size: 12px;")
         
-        # Value label
         value_label = QLabel(value)
-        value_label.setFont(QFont('Inter', 16, QFont.DemiBold))
-        
-        # Set value color based on content
-        if "No object detected" in value or value == "-":
-            color = "#10b981"  # Green for no object/default state
-        elif "Analyzing..." in value:
-            color = "#f59e0b"  # Amber for analyzing
-        elif "High Value" in value:
-            color = "#10b981"  # Green for high value
-        elif "Low Value" in value:
-            color = "#f59e0b"  # Amber for low value
-        elif "Rejected" in value:
-            color = "#ef4444"  # Red for rejected
-        elif "Mixed" in value:
-            color = "#ef4444"  # Red for mixed
-        else:
-            color = "#10b981"  # Default green
-            
-        value_label.setStyleSheet(f"""
-            QLabel {{
-                color: {color};
-                background-color: transparent;
-                border: none;
-                font-weight: 600;
-            }}
-        """)
+        value_label.setStyleSheet("color: #3ac194; font-size: 16px; font-weight: bold;")
         
         layout.addWidget(title_label)
         layout.addWidget(value_label)
         
-        # Store references for easy updating
-        panel.title_label = title_label
+        # Store the value label for later updates
         panel.value_label = value_label
-        panel.update_value = lambda new_value: self.update_panel_value(panel, new_value)
         
         return panel
-        
-    def update_panel_value(self, panel, new_value):
-        """Update panel value with appropriate styling"""
-        panel.value_label.setText(str(new_value))
-        
-        # Update color based on content
-        if "No object detected" in str(new_value) or str(new_value) == "-":
-            color = "#10b981"  # Green
-        elif "Analyzing..." in str(new_value):
-            color = "#f59e0b"  # Yellow
-        elif "High Value" in str(new_value):
-            color = "#10b981"  # Green
-        elif "Low Value" in str(new_value):
-            color = "#3b82f6"  # Blue for low value
-        elif "Rejected" in str(new_value):
-            color = "#f59e0b"  # Yellow for rejected
-        elif "Mixed" in str(new_value):
-            color = "#ef4444"  # Red for mixed
-        else:
-            color = "#10b981"  # Default green
-            
-        panel.value_label.setStyleSheet(f"""
-            QLabel {{
-                color: {color};
-                background-color: transparent;
-                border: none;
-                font-weight: 600;
-                font-size: 24px;
-            }}
-        """)
+
+    def update_result_panel(self, panel, value):
+        """Update the value of a result panel"""
+        if hasattr(panel, 'value_label'):
+            panel.value_label.setText(value)
+
+    def _show_no_object_detected(self):
+        """Show no object detected state"""
+        self.update_result_panel(self.waste_type_widget, 'No object detected')
+        self.update_result_panel(self.confidence_widget, '0.00%')
+        self.update_result_panel(self.contamination_widget, '0.00%')
+        self.update_result_panel(self.classification_widget, 'No object detected')
+        self.status_label.setText("Status: Ready")
+        self.classification_label.setText("Classification: -")
 
     def setup_camera_layout(self):
         """Setup the camera layout based on current state"""
@@ -473,12 +453,6 @@ class MainView(QWidget):
         except Exception as e:
             logger.error(f"Error updating detection results: {e}")
             traceback.print_exc()
-
-    def _show_no_object_detected(self):
-        self.waste_type_widget.update_value('No object detected')
-        self.contamination_widget.update_value('0.00%')
-        self.classification_widget.update_value('No object detected')
-        self.confidence_widget.update_value('0.00%')
 
     def toggle_detection(self):
         """Toggle detection on/off"""
