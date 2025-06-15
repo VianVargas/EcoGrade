@@ -15,7 +15,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("EcoGrade")
-        self.setFixedSize(1280, 720)  # Increased size to fit 640x640 camera
+        self.setFixedSize(1080, 720)  # Increased size to fit 640x640 camera
         self.setStyleSheet("""
             QMainWindow {
                 background-color: #1a1a1a;

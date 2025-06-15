@@ -12,8 +12,8 @@ class CameraWidget(QLabel):
     def __init__(self, view_type="object_detection", video_processor=None, parent=None):
         super().__init__(parent)
         self.view_type = view_type
-        self.setMinimumSize(640, 640)  # Set to 640x640
-        self.setMaximumSize(640, 640)  # Set to 640x640
+        self.setMinimumSize(640, 360)  # Set to 640x640
+        self.setMaximumSize(640, 360)  # Set to 640x640
         
         # Create glow effect
         self.glow_effect = QGraphicsDropShadowEffect()
