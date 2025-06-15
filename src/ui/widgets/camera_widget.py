@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QLabel, QGraphicsDropShadowEffect
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QSize
-from PyQt5.QtGui import QImage, QPixmap, QColor, QFont
+from PyQt5.QtGui import QImage, QPixmap, QColor, QFont, QPainter
 import cv2
 import numpy as np
 from src.utils.video_processor import VideoProcessor
@@ -12,8 +12,8 @@ class CameraWidget(QLabel):
     def __init__(self, view_type="object_detection", video_processor=None, parent=None):
         super().__init__(parent)
         self.view_type = view_type
-        self.setMinimumSize(640, 360)  # Set to 640x640
-        self.setMaximumSize(640, 360)  # Set to 640x640
+        self.setMinimumSize(640, 360)  # 16:9 aspect ratio
+        self.setMaximumSize(640, 360)  # Fixed size
         
         # Create glow effect
         self.glow_effect = QGraphicsDropShadowEffect()
@@ -44,7 +44,7 @@ class CameraWidget(QLabel):
         self.camera_started = False
         self.error_message = None
         self.last_update_time = 0
-        self.update_interval = 33  # Increased from 50ms to ~30 FPS
+        self.update_interval = 33  # ~30 FPS
         self.frame_buffer = None
         self.processing_frame = False
     
@@ -84,35 +84,44 @@ class CameraWidget(QLabel):
     
     def update_frame(self):
         """Update the camera frame"""
+        if not self.video_processor or not self.video_processor.latest_result:
+            return
+
         try:
-            if not self.video_processor or not self.video_processor.latest_result:
-                return
-
-            current_time = time.time()
-            if current_time - self.last_update_time < self.update_interval / 1000.0:
-                return
-
             result = self.video_processor.latest_result
             frame = result['frames'].get(self.view_type)
             
             if frame is not None:
-                # Convert frame to RGB
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                # Convert frame to QImage
+                height, width, channel = frame.shape
+                bytes_per_line = 3 * width
+                q_image = QImage(frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+                q_image = q_image.rgbSwapped()
                 
-                # Resize frame to widget size
-                h, w = frame.shape[:2]
-                widget_size = self.size()
-                scaled_frame = cv2.resize(frame, (widget_size.width(), widget_size.height()))
+                # Scale image to fit widget while maintaining aspect ratio
+                scaled_pixmap = QPixmap.fromImage(q_image).scaled(
+                    self.width(), self.height(),
+                    Qt.KeepAspectRatio,
+                    Qt.FastTransformation  # Use fast transformation instead of smooth
+                )
                 
-                # Convert to QImage
-                image = QImage(scaled_frame.data, scaled_frame.shape[1], scaled_frame.shape[0], 
-                             scaled_frame.strides[0], QImage.Format_RGB888)
+                # Center the image
+                x = (self.width() - scaled_pixmap.width()) // 2
+                y = (self.height() - scaled_pixmap.height()) // 2
                 
-                # Set the pixmap
-                self.setPixmap(QPixmap.fromImage(image))
+                # Create a new pixmap with the widget size
+                final_pixmap = QPixmap(self.width(), self.height())
+                final_pixmap.fill(Qt.black)
+                
+                # Draw the scaled image centered
+                painter = QPainter(final_pixmap)
+                painter.drawPixmap(x, y, scaled_pixmap)
+                painter.end()
+                
+                self.setPixmap(final_pixmap)
                 
                 # Update last update time
-                self.last_update_time = current_time
+                self.last_update_time = time.time()
                 
                 # Emit result if available
                 if 'data' in result:

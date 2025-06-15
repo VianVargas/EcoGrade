@@ -146,7 +146,7 @@ class MainView(QWidget):
         
         # Camera view layout
         camera_layout = QHBoxLayout()
-        camera_layout.setSpacing(20)
+        camera_layout.setSpacing(10)
         
         # Create camera widgets
         self.object_detection_camera = CameraWidget(
@@ -170,45 +170,53 @@ class MainView(QWidget):
         # Add camera layout to main layout
         main_layout.addLayout(camera_layout)
         
-        # Status and controls layout
-        controls_layout = QHBoxLayout()
-        controls_layout.setSpacing(20)
+        # Create status panel
+        status_panel = QWidget()
+        status_panel.setFixedHeight(100)
+        status_panel.setStyleSheet("""
+            QWidget {
+                background-color: #2d2d2d;
+                border-radius: 10px;
+                padding: 10px;
+            }
+        """)
         
-        # Status display
+        # Status panel layout
+        status_layout = QHBoxLayout()
+        status_layout.setContentsMargins(10, 10, 10, 10)
+        status_layout.setSpacing(20)
+        
+        # Status labels
         self.status_label = QLabel("Status: Ready")
-        self.status_label.setStyleSheet("""
-            QLabel {
-                color: #3ac194;
-                font-size: 14px;
-                padding: 5px;
-                background-color: #2d2d2d;
-                border-radius: 5px;
-            }
-        """)
-        controls_layout.addWidget(self.status_label)
+        self.status_label.setStyleSheet("color: #ffffff; font-size: 14px;")
         
-        # Classification display
         self.classification_label = QLabel("Classification: -")
-        self.classification_label.setStyleSheet("""
-            QLabel {
-                color: #3ac194;
-                font-size: 14px;
-                padding: 5px;
-                background-color: #2d2d2d;
-                border-radius: 5px;
-            }
-        """)
-        controls_layout.addWidget(self.classification_label)
+        self.classification_label.setStyleSheet("color: #ffffff; font-size: 14px;")
         
-        # Add controls layout to main layout
-        main_layout.addLayout(controls_layout)
+        self.confidence_label = QLabel("Confidence: -")
+        self.confidence_label.setStyleSheet("color: #ffffff; font-size: 14px;")
         
-        # Set the main layout
+        # Add labels to status layout
+        status_layout.addWidget(self.status_label)
+        status_layout.addWidget(self.classification_label)
+        status_layout.addWidget(self.confidence_label)
+        status_layout.addStretch()
+        
+        # Set status panel layout
+        status_panel.setLayout(status_layout)
+        
+        # Add status panel to main layout
+        main_layout.addWidget(status_panel)
+        
+        # Set main layout
         self.setLayout(main_layout)
         
         # Connect signals
         self.object_detection_camera.result_updated.connect(self.handle_detection_result)
         self.residue_scan_camera.result_updated.connect(self.handle_detection_result)
+        
+        # Start video processing
+        self.video_processor.start()
 
     def create_result_panel(self, title, value):
         """Create a result panel with analytics styling"""
@@ -618,44 +626,3 @@ class MainView(QWidget):
         except Exception as e:
             logger.error(f"Error in closeEvent: {str(e)}")
             event.accept()
-
-    def toggle_camera_view(self):
-        """Toggle between single and dual camera views"""
-        self.is_two_camera_layout = not self.is_two_camera_layout
-        if self.is_two_camera_layout:
-            self.residue_scan_camera.show()
-            self.object_detection_camera.setMinimumSize(480, 360)
-            self.object_detection_camera.setMaximumSize(480, 360)
-            self.residue_scan_camera.setMinimumSize(480, 360)
-            self.residue_scan_camera.setMaximumSize(480, 360)
-        else:
-            self.residue_scan_camera.hide()
-            self.object_detection_camera.setMinimumSize(640, 360)
-            self.object_detection_camera.setMaximumSize(640, 360)
-
-    def handle_detection_result(self, result_data):
-        """Handle detection result updates"""
-        try:
-            if not result_data:
-                return
-
-            # Update status
-            if result_data.get('classification') == 'Analyzing...':
-                self.status_label.setText("Status: Analyzing...")
-            elif result_data.get('classification') == 'No object detected':
-                self.status_label.setText("Status: No object detected")
-            else:
-                self.status_label.setText("Status: Object detected")
-
-            # Update classification
-            classification = result_data.get('classification', '-')
-            self.classification_label.setText(f"Classification: {classification}")
-
-            # Store last valid detection
-            if classification not in ['Analyzing...', 'No object detected', 'Waiting for: Type', 'Unknown', '-']:
-                self.last_valid_detection = result_data
-                self.last_classification = classification
-
-        except Exception as e:
-            print(f"Error handling detection result: {str(e)}")
-            self.status_label.setText("Status: Error processing detection")
