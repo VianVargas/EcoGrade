@@ -9,10 +9,52 @@ from .views.about_view import AboutView
 import sys
 import logging
 import traceback
+import sqlite3
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.setWindowTitle("EcoGrade")
+        self.setFixedSize(1280, 720)  # Increased size to fit 640x640 camera
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #1a1a1a;
+            }
+            QMenuBar {
+                background-color: #2d2d2d;
+                color: #ffffff;
+            }
+            QMenuBar::item:selected {
+                background-color: #3d3d3d;
+            }
+            QMenu {
+                background-color: #2d2d2d;
+                color: #ffffff;
+            }
+            QMenu::item:selected {
+                background-color: #3d3d3d;
+            }
+        """)
+        
+        # Initialize database connection
+        self.db_connection = sqlite3.connect('data/measurements.db')
+        
+        # Create main view
+        self.main_view = MainView(self)
+        self.setCentralWidget(self.main_view)
+        
+        # Create menu bar
+        self.create_menu_bar()
+        
+        # Set window icon
+        self.setWindowIcon(QIcon('assets/icon.png'))
+        
+        # Initialize status bar
+        self.statusBar().showMessage('Ready')
+        
+        # Set window flags to prevent resizing
+        self.setWindowFlags(self.windowFlags() & ~Qt.WindowMaximizeButtonHint)
+        
         self.current_view = "front"
         self.initUI()
         
