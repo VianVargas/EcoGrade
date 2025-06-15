@@ -600,3 +600,45 @@ class MainView(QWidget):
         except Exception as e:
             logger.error(f"Error in closeEvent: {str(e)}")
             event.accept()
+
+    def start_detection(self):
+        """Start the detection process"""
+        if not self.is_detecting:
+            self.is_detecting = True
+            self.start_button.setEnabled(False)
+            self.stop_button.setEnabled(True)
+            if hasattr(self, 'video_processor'):
+                self.video_processor.start()
+
+    def stop_detection(self):
+        """Stop the detection process"""
+        if self.is_detecting:
+            self.is_detecting = False
+            self.start_button.setEnabled(True)
+            self.stop_button.setEnabled(False)
+            if hasattr(self, 'video_processor'):
+                self.video_processor.stop()
+
+    def toggle_camera_view(self):
+        """Toggle between single and dual camera views"""
+        self.is_two_camera_layout = not self.is_two_camera_layout
+        self.update_camera_layout()
+        if self.is_two_camera_layout:
+            self.toggle_view_button.setText("Single View")
+        else:
+            self.toggle_view_button.setText("Dual View")
+
+    def update_camera_layout(self):
+        """Update the camera layout based on current view mode"""
+        # Clear existing layout
+        for i in reversed(range(self.camera_layout.count())): 
+            self.camera_layout.itemAt(i).widget().setParent(None)
+        
+        if self.is_two_camera_layout:
+            # Add both cameras
+            self.camera_layout.addWidget(self.object_detection_camera)
+            self.camera_layout.addWidget(self.residue_scan_camera)
+        else:
+            # Add only object detection camera
+            self.camera_layout.addWidget(self.object_detection_camera)
+            self.residue_scan_camera.hide()
