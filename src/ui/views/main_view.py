@@ -116,23 +116,16 @@ class MainView(QWidget):
         self.parent = parent
         self.video_processor = VideoProcessor()
         self.last_classification = None
-        self.last_valid_detection = None
-        self.is_two_camera_layout = False  # Start with single camera layout
-        self.is_detecting = False  # Track detection state
-        self.frame_skip = 2  # Reduce from 3 to 2
-        self.detection_interval = 0.1  # Reduce from 0.2 to 0.1
+        self.animation_time = 0
+        self.detection_start_time = None
+        self.current_contamination_score = 0
         self.processing_size = (416, 416)  # Increase from (320, 240)
         self.update_interval = 33  # Increase from 50ms to ~30 FPS
         self.last_servo_command_time = 0  # Track last servo command time
         self.command_cooldown = 5.0  # 5 seconds cooldown between commands
         
         # Initialize servo controller
-        try:
-            self.servo_controller = ServoController()
-            logger.info("Servo controller initialized successfully")
-        except Exception as e:
-            logger.error(f"Failed to initialize servo controller: {e}")
-            self.servo_controller = None
+        self.servo_controller = ServoController()
         
         self.setup_ui()
         self.setup_connections()
@@ -740,3 +733,21 @@ class MainView(QWidget):
         except Exception as e:
             logger.error(f"Error in closeEvent: {str(e)}")
             event.accept()
+
+    def setup_connections(self):
+        """Setup signal connections"""
+        # Connect video processor detection callback
+        if hasattr(self, 'video_processor'):
+            self.video_processor.detection_callback = self.update_detection_results
+            
+        # Connect camera selection
+        if hasattr(self, 'camera_selector'):
+            self.camera_selector.currentIndexChanged.connect(self.on_camera_changed)
+            
+        # Connect start/stop button
+        if hasattr(self, 'start_button'):
+            self.start_button.clicked.connect(self.toggle_detection)
+            
+        # Connect settings button
+        if hasattr(self, 'settings_button'):
+            self.settings_button.clicked.connect(self.show_settings)
